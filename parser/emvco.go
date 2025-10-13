@@ -138,19 +138,52 @@ func (p *EMVCoParser) parseAdditionalData(qrData string, data *models.EMVCoData)
 			additionalData := match[2][:length]
 			
 			// 子标签 01 - 账单号/订单参考号
-			if subMatch := regexp.MustCompile(`01(\d{2})([A-Z0-9#\-]+)`).FindStringSubmatch(additionalData); len(subMatch) > 2 {
+			if subMatch := regexp.MustCompile(`01(\d{2})(.+)`).FindStringSubmatch(additionalData); len(subMatch) > 2 {
 				subLength, _ := strconv.Atoi(subMatch[1])
 				if len(subMatch[2]) >= subLength {
 					data.OrderReference = subMatch[2][:subLength]
 				}
 			}
-			
-			// 子标签 05 - 获取方信息
-			if subMatch := regexp.MustCompile(`05(\d{2})([A-Z0-9#\-]+)`).FindStringSubmatch(additionalData); len(subMatch) > 2 {
+
+			// 子标签 03 - 获取方信息 (某些 QR Code 中 AcqInfo 在这里)
+			var acqInfo03 string
+			if subMatch := regexp.MustCompile(`03(\d{2})(.+)`).FindStringSubmatch(additionalData); len(subMatch) > 2 {
 				subLength, _ := strconv.Atoi(subMatch[1])
 				if len(subMatch[2]) >= subLength {
-					data.AcqInfo = subMatch[2][:subLength]
+					acqInfo03 = subMatch[2][:subLength]
 				}
+			}
+
+			// 子标签 05 - 获取方信息 (某些 QR Code 中 AcqInfo 在这里)
+			var acqInfo05 string
+			if subMatch := regexp.MustCompile(`05(\d{2})(.+)`).FindStringSubmatch(additionalData); len(subMatch) > 2 {
+				subLength, _ := strconv.Atoi(subMatch[1])
+				if len(subMatch[2]) >= subLength {
+					acqInfo05 = subMatch[2][:subLength]
+				}
+			}
+
+			// 选择合适的 AcqInfo
+			// 策略：优先使用包含非数字字符的值
+			// 1. 如果 acqInfo05 包含非数字字符，使用 acqInfo05
+			// 2. 否则，如果 acqInfo03 包含非数字字符，使用 acqInfo03
+			// 3. 否则，使用 acqInfo05（如果有）
+			// 4. 最后使用 acqInfo03
+			isDigitOnly03 := acqInfo03 != "" && regexp.MustCompile(`^\d+$`).MatchString(acqInfo03)
+			isDigitOnly05 := acqInfo05 != "" && regexp.MustCompile(`^\d+$`).MatchString(acqInfo05)
+
+			if acqInfo05 != "" && !isDigitOnly05 {
+				// acqInfo05 有非数字字符，优先使用
+				data.AcqInfo = acqInfo05
+			} else if acqInfo03 != "" && !isDigitOnly03 {
+				// acqInfo03 有非数字字符，使用它
+				data.AcqInfo = acqInfo03
+			} else if acqInfo05 != "" {
+				// 两者都是纯数字或为空，优先使用 acqInfo05
+				data.AcqInfo = acqInfo05
+			} else {
+				// 最后使用 acqInfo03
+				data.AcqInfo = acqInfo03
 			}
 		}
 	}
