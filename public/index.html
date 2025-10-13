@@ -1,369 +1,415 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GCash Deep Link Generator</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-        h1 {
-            color: #333;
-            margin-bottom: 10px;
-            text-align: center;
-        }
-        .subtitle {
-            text-align: center;
-            color: #666;
-            margin-bottom: 30px;
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        label {
-            display: block;
-            color: #555;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-        textarea, input, select {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: border-color 0.3s;
-        }
-        textarea {
-            font-family: 'Courier New', monospace;
-            min-height: 120px;
-            resize: vertical;
-        }
-        textarea:focus, input:focus, select:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-        button {
-            width: 100%;
-            padding: 15px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
-        }
-        button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            transform: none;
-        }
-        .result {
-            margin-top: 30px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 12px;
-            display: none;
-        }
-        .result.show {
-            display: block;
-            animation: slideUp 0.5s ease-out;
-        }
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        .result h3 {
-            color: #667eea;
-            margin-bottom: 15px;
-        }
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-        .info-item {
-            padding: 10px;
-            background: white;
-            border-radius: 6px;
-        }
-        .info-label {
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 4px;
-        }
-        .info-value {
-            font-weight: 600;
-            color: #333;
-        }
-        .deeplink-box {
-            margin-top: 15px;
-            padding: 12px;
-            background: white;
-            border-radius: 8px;
-            word-break: break-all;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            max-height: 150px;
-            overflow-y: auto;
-        }
-        .deeplink-edit {
-            width: 100%;
-            margin-top: 8px;
-            padding: 12px;
-            background: white;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            resize: vertical;
-            min-height: 80px;
-            word-break: break-all;
-            transition: border-color 0.3s;
-        }
-        .deeplink-edit:focus {
-            outline: none;
-            border-color: #667eea;
-            background: #f8f9ff;
-        }
-        .actions {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 15px;
-        }
-        .btn {
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s;
-        }
-        .btn-primary {
-            background: #28a745;
-            color: white;
-        }
-        .btn-primary:hover {
-            background: #218838;
-            transform: translateY(-2px);
-        }
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-        }
-        .btn-secondary:hover {
-            background: #5a6268;
-            transform: translateY(-2px);
-        }
-        .error {
-            margin-top: 20px;
-            padding: 15px;
-            background: #f8d7da;
-            color: #721c24;
-            border-radius: 8px;
-            display: none;
-        }
-        .error.show {
-            display: block;
-        }
-        .loading {
-            text-align: center;
-            padding: 20px;
-            display: none;
-        }
-        .loading.show {
-            display: block;
-        }
-        .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🚀 GCash Deep Link Generator</h1>
-        <p class="subtitle">将 EMVCo QR Code 转换为 GCash Deep Link</p>
-        
-        <div class="form-group">
-            <label for="qrCode">EMVCo QR Code *</label>
-            <textarea id="qrCode" placeholder="粘贴您的 EMVCo QR Code 数据...&#10;例如: 00020101021228530011ph.ppmi.p2m..."></textarea>
-        </div>
-        
-        <div class="form-row">
-            <div class="form-group">
-                <label for="orderId">订单 ID (可选)</label>
-                <input type="text" id="orderId" placeholder="ORDER-12345">
-            </div>
-            
-            <div class="form-group">
-                <label for="merchantId">商户 ID (可选)</label>
-                <input type="text" id="merchantId" placeholder="217020000119199251998">
-            </div>
-        </div>
-        
-        <div class="form-group">
-            <label for="paymentType">支付类型</label>
-            <select id="paymentType">
-                <option value="">自动判断</option>
-                <option value="000">标准支付 (000)</option>
-                <option value="010">动态 QR 支付 (010)</option>
-                <option value="001">静态 QR 支付 (001)</option>
-            </select>
-        </div>
-        
-        <div class="form-group">
-            <label for="redirectUrl">回调 URL (可选)</label>
-            <input type="text" id="redirectUrl" placeholder="https://yoursite.com/payment/success">
-        </div>
-        
-        <div class="form-group">
-            <label for="notifyUrl">通知 URL (可选)</label>
-            <input type="text" id="notifyUrl" placeholder="https://yoursite.com/api/gcash/webhook">
-        </div>
-        
-        <button id="generateBtn" onclick="generate()">生成 Deep Link</button>
-        
-        <div id="loading" class="loading">
-            <div class="spinner"></div>
-            <p style="margin-top: 10px; color: #666;">生成中...</p>
-        </div>
-        
-        <div id="error" class="error"></div>
-        
-        <div id="result" class="result">
-            <h3>✅ 生成成功</h3>
-            
-            <div class="info-grid" id="infoGrid"></div>
-            
-            <div>
-                <label style="margin-bottom: 8px; display: block;">生成的 Deep Link (可手动编辑):</label>
-                <textarea class="deeplink-edit" id="deepLinkEdit" rows="4" placeholder="Deep Link 将显示在这里，您可以手动编辑后再打开..."></textarea>
-            </div>
 
-            <div class="actions">
-                <button class="btn btn-primary" onclick="openGCash()">
-                    🚀 打开 GCash
-                </button>
-                <button class="btn btn-secondary" onclick="copyLink()">
-                    📋 复制链接
-                </button>
-            </div>
-        </div>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GCash Deep Link Generator</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 30px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      color: #555;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    textarea,
+    input,
+    select {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+
+    textarea {
+      font-family: 'Courier New', monospace;
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    textarea:focus,
+    input:focus,
+    select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+
+    button {
+      width: 100%;
+      padding: 15px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .result {
+      margin-top: 30px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 12px;
+      display: none;
+    }
+
+    .result.show {
+      display: block;
+      animation: slideUp 0.5s ease-out;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .result h3 {
+      color: #667eea;
+      margin-bottom: 15px;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    .info-item {
+      padding: 10px;
+      background: white;
+      border-radius: 6px;
+    }
+
+    .info-label {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 4px;
+    }
+
+    .info-value {
+      font-weight: 600;
+      color: #333;
+    }
+
+    .deeplink-box {
+      margin-top: 15px;
+      padding: 12px;
+      background: white;
+      border-radius: 8px;
+      word-break: break-all;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    .deeplink-edit {
+      width: 100%;
+      margin-top: 8px;
+      padding: 12px;
+      background: white;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      resize: vertical;
+      min-height: 80px;
+      word-break: break-all;
+      transition: border-color 0.3s;
+    }
+
+    .deeplink-edit:focus {
+      outline: none;
+      border-color: #667eea;
+      background: #f8f9ff;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .btn {
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .btn-primary {
+      background: #28a745;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #218838;
+      transform: translateY(-2px);
+    }
+
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+    }
+
+    .btn-secondary:hover {
+      background: #5a6268;
+      transform: translateY(-2px);
+    }
+
+    .error {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f8d7da;
+      color: #721c24;
+      border-radius: 8px;
+      display: none;
+    }
+
+    .error.show {
+      display: block;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 20px;
+      display: none;
+    }
+
+    .loading.show {
+      display: block;
+    }
+
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>🚀 GCash Deep Link Generator</h1>
+    <p class="subtitle">将 EMVCo QR Code 转换为 GCash Deep Link</p>
+
+    <div class="form-group">
+      <label for="qrCode">EMVCo QR Code *</label>
+      <textarea id="qrCode" placeholder="粘贴您的 EMVCo QR Code 数据...&#10;例如: 00020101021228530011ph.ppmi.p2m..."></textarea>
     </div>
 
-    <script>
-        let currentDeepLink = '';
-        const API_BASE_URL = 'http://localhost:9000';
+    <div class="form-row">
+      <div class="form-group">
+        <label for="orderId">订单 ID (可选)</label>
+        <input type="text" id="orderId" placeholder="ORDER-12345">
+      </div>
 
-        async function generate() {
-            const qrCode = document.getElementById('qrCode').value.trim();
-            const orderId = document.getElementById('orderId').value.trim();
-            const merchantId = document.getElementById('merchantId').value.trim();
-            const redirectUrl = document.getElementById('redirectUrl').value.trim();
-            const notifyUrl = document.getElementById('notifyUrl').value.trim();
-            const paymentType = document.getElementById('paymentType').value;
+      <div class="form-group">
+        <label for="merchantId">商户 ID (可选)</label>
+        <input type="text" id="merchantId" placeholder="217020000119199251998">
+      </div>
+    </div>
 
-            // 隐藏之前的结果
-            hideAll();
+    <div class="form-group">
+      <label for="paymentType">支付类型</label>
+      <select id="paymentType">
+        <option value="">自动判断</option>
+        <option value="000">标准支付 (000)</option>
+        <option value="010">动态 QR 支付 (010)</option>
+        <option value="001">静态 QR 支付 (001)</option>
+      </select>
+    </div>
 
-            // 验证输入
-            if (!qrCode) {
-                showError('请输入 EMVCo QR Code');
-                return;
-            }
+    <div class="form-group">
+      <label for="redirectUrl">回调 URL (可选)</label>
+      <input type="text" id="redirectUrl" placeholder="https://yoursite.com/payment/success">
+    </div>
 
-            // 显示加载状态
-            showLoading();
-            document.getElementById('generateBtn').disabled = true;
+    <div class="form-group">
+      <label for="notifyUrl">通知 URL (可选)</label>
+      <input type="text" id="notifyUrl" placeholder="https://yoursite.com/api/gcash/webhook">
+    </div>
 
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/generate`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        qrCode,
-                        orderId: orderId || undefined,
-                        merchantId: merchantId || undefined,
-                        redirectUrl: redirectUrl || undefined,
-                        notifyUrl: notifyUrl || undefined,
-                        paymentType: paymentType || undefined,
-                    })
-                });
+    <button id="generateBtn" onclick="generate()">生成 Deep Link</button>
 
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
+    <div id="loading" class="loading">
+      <div class="spinner"></div>
+      <p style="margin-top: 10px; color: #666;">生成中...</p>
+    </div>
 
-                const data = await response.json();
+    <div id="error" class="error"></div>
 
-                if (data.success) {
-                    currentDeepLink = data.deepLink;
-                    displayResult(data);
-                } else {
-                    showError(data.error || '生成失败');
-                }
-            } catch (error) {
-                showError('网络错误：' + error.message + '\n\n请确保后端服务正在运行 (http://localhost:9000)');
-            } finally {
-                hideLoading();
-                document.getElementById('generateBtn').disabled = false;
-            }
+    <div id="result" class="result">
+      <h3>✅ 生成成功</h3>
+
+      <div class="info-grid" id="infoGrid"></div>
+
+      <div>
+        <label style="margin-bottom: 8px; display: block;">生成的 Deep Link (可手动编辑):</label>
+        <textarea class="deeplink-edit" id="deepLinkEdit" rows="4" placeholder="Deep Link 将显示在这里，您可以手动编辑后再打开..."></textarea>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-primary" onclick="openGCash()">
+          🚀 打开 GCash
+        </button>
+        <button class="btn btn-secondary" onclick="copyLink()">
+          📋 复制链接
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentDeepLink = '';
+    async function generate() {
+      const qrCode = document.getElementById('qrCode').value.trim();
+      const orderId = document.getElementById('orderId').value.trim();
+      const merchantId = document.getElementById('merchantId').value.trim();
+      const redirectUrl = document.getElementById('redirectUrl').value.trim();
+      const notifyUrl = document.getElementById('notifyUrl').value.trim();
+      const paymentType = document.getElementById('paymentType').value;
+
+      // 隐藏之前的结果
+      hideAll();
+
+      // 验证输入
+      if (!qrCode) {
+        showError('请输入 EMVCo QR Code');
+        return;
+      }
+
+      // 显示加载状态
+      showLoading();
+      document.getElementById('generateBtn').disabled = true;
+
+      try {
+        const response = await fetch(`/api/generate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            qrCode,
+            orderId: orderId || undefined,
+            merchantId: merchantId || undefined,
+            redirectUrl: redirectUrl || undefined,
+            notifyUrl: notifyUrl || undefined,
+            paymentType: paymentType || undefined,
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
-        function displayResult(data) {
-            const parsed = data.parsedData;
-            
-            // 显示解析信息
-            const infoGrid = document.getElementById('infoGrid');
-            infoGrid.innerHTML = `
+        const data = await response.json();
+
+        if (data.success) {
+          currentDeepLink = data.deepLink;
+          displayResult(data);
+        } else {
+          showError(data.error || '生成失败');
+        }
+      } catch (error) {
+        showError('网络错误：' + error.message + '\n\n请确保后端服务正在运行 (http://localhost:9000)');
+      } finally {
+        hideLoading();
+        document.getElementById('generateBtn').disabled = false;
+      }
+    }
+
+    function displayResult(data) {
+      const parsed = data.parsedData;
+
+      // 显示解析信息
+      const infoGrid = document.getElementById('infoGrid');
+      infoGrid.innerHTML = `
                 <div class="info-item">
                     <div class="info-label">商户名称</div>
                     <div class="info-value">${parsed.MerchantName || '-'}</div>
@@ -381,97 +427,98 @@
                     <div class="info-value">${parsed.ShopID || '-'}</div>
                 </div>
             `;
-            
-            // 显示 Deep Link 到可编辑的 textarea
-            document.getElementById('deepLinkEdit').value = data.deepLink;
 
-            // 显示结果区域
-            document.getElementById('result').classList.add('show');
-        }
+      // 显示 Deep Link 到可编辑的 textarea
+      document.getElementById('deepLinkEdit').value = data.deepLink;
 
-        function openGCash() {
-            // 从 textarea 获取链接（支持手动编辑）
-            const deepLink = document.getElementById('deepLinkEdit').value.trim();
+      // 显示结果区域
+      document.getElementById('result').classList.add('show');
+    }
 
-            if (deepLink) {
-                // 尝试打开 GCash
-                window.location.href = deepLink;
-                
-                // 2 秒后检查是否成功打开
-                setTimeout(() => {
-                    if (!document.hidden) {
-                        alert('无法打开 GCash 应用\n\n请确保:\n1. 已安装 GCash 应用\n2. 在移动设备上测试\n3. 允许浏览器打开外部应用');
-                    }
-                }, 2000);
-            }
-        }
+    function openGCash() {
+      // 从 textarea 获取链接（支持手动编辑）
+      const deepLink = document.getElementById('deepLinkEdit').value.trim();
 
-        function copyLink() {
-            // 从 textarea 获取链接（支持手动编辑）
-            const deepLink = document.getElementById('deepLinkEdit').value.trim();
+      if (deepLink) {
+        // 尝试打开 GCash
+        window.location.href = deepLink;
 
-            if (deepLink) {
-                navigator.clipboard.writeText(deepLink).then(() => {
-                    alert('✅ Deep Link 已复制到剪贴板');
-                }).catch(() => {
-                    // 备用复制方法
-                    const textArea = document.createElement('textarea');
-                    textArea.value = deepLink;
-                    textArea.style.position = 'fixed';
-                    textArea.style.left = '-9999px';
-                    document.body.appendChild(textArea);
-                    textArea.select();
-                    try {
-                        document.execCommand('copy');
-                        alert('✅ Deep Link 已复制到剪贴板');
-                    } catch (err) {
-                        alert('❌ 复制失败，请手动复制');
-                    }
-                    document.body.removeChild(textArea);
-                });
-            } else {
-                alert('❌ 没有可复制的链接');
-            }
-        }
+        // 2 秒后检查是否成功打开
+        setTimeout(() => {
+          if (!document.hidden) {
+            alert('无法打开 GCash 应用\n\n请确保:\n1. 已安装 GCash 应用\n2. 在移动设备上测试\n3. 允许浏览器打开外部应用');
+          }
+        }, 2000);
+      }
+    }
 
-        function showLoading() {
-            document.getElementById('loading').classList.add('show');
-        }
+    function copyLink() {
+      // 从 textarea 获取链接（支持手动编辑）
+      const deepLink = document.getElementById('deepLinkEdit').value.trim();
 
-        function hideLoading() {
-            document.getElementById('loading').classList.remove('show');
-        }
-
-        function showError(message) {
-            const errorDiv = document.getElementById('error');
-            errorDiv.textContent = '❌ ' + message;
-            errorDiv.classList.add('show');
-        }
-
-        function hideAll() {
-            document.getElementById('result').classList.remove('show');
-            document.getElementById('error').classList.remove('show');
-            document.getElementById('loading').classList.remove('show');
-        }
-
-        // 支持 Ctrl+Enter 提交
-        document.getElementById('qrCode').addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 'Enter') {
-                generate();
-            }
+      if (deepLink) {
+        navigator.clipboard.writeText(deepLink).then(() => {
+          alert('✅ Deep Link 已复制到剪贴板');
+        }).catch(() => {
+          // 备用复制方法
+          const textArea = document.createElement('textarea');
+          textArea.value = deepLink;
+          textArea.style.position = 'fixed';
+          textArea.style.left = '-9999px';
+          document.body.appendChild(textArea);
+          textArea.select();
+          try {
+            document.execCommand('copy');
+            alert('✅ Deep Link 已复制到剪贴板');
+          } catch (err) {
+            alert('❌ 复制失败，请手动复制');
+          }
+          document.body.removeChild(textArea);
         });
+      } else {
+        alert('❌ 没有可复制的链接');
+      }
+    }
 
-        // 页面加载时检查后端连接
-        window.addEventListener('load', async () => {
-            try {
-                const response = await fetch(`${API_BASE_URL}/health`);
-                if (response.ok) {
-                    console.log('✅ 后端服务连接成功');
-                }
-            } catch (error) {
-                console.warn('⚠️ 后端服务未启动，请运行：go run main.go');
-            }
-        });
-    </script>
+    function showLoading() {
+      document.getElementById('loading').classList.add('show');
+    }
+
+    function hideLoading() {
+      document.getElementById('loading').classList.remove('show');
+    }
+
+    function showError(message) {
+      const errorDiv = document.getElementById('error');
+      errorDiv.textContent = '❌ ' + message;
+      errorDiv.classList.add('show');
+    }
+
+    function hideAll() {
+      document.getElementById('result').classList.remove('show');
+      document.getElementById('error').classList.remove('show');
+      document.getElementById('loading').classList.remove('show');
+    }
+
+    // 支持 Ctrl+Enter 提交
+    document.getElementById('qrCode').addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.key === 'Enter') {
+        generate();
+      }
+    });
+
+    // 页面加载时检查后端连接
+    window.addEventListener('load', async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/health`);
+        if (response.ok) {
+          console.log('✅ 后端服务连接成功');
+        }
+      } catch (error) {
+        console.warn('⚠️ 后端服务未启动，请运行：go run main.go');
+      }
+    });
+  </script>
 </body>
+
 </html>

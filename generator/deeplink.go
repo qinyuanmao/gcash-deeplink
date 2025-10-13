@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"time"
-	
+
 	"github.com/qinyuanmao/gcash-deeplink/models"
 	"github.com/qinyuanmao/gcash-deeplink/parser"
 )
@@ -84,6 +84,10 @@ func (g *DeepLinkGenerator) fillDefaults(data *models.EMVCoData, options *models
 	// 客户端 ID
 	if options.ClientID == "" {
 		options.ClientID = fmt.Sprintf("%d", time.Now().UnixNano()/1e6)
+	}
+
+	if options.ShopID != "" {
+		data.ShopID = options.ShopID
 	}
 
 	// 支付类型
