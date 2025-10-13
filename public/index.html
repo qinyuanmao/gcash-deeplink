@@ -194,9 +194,10 @@
 
     .actions {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr;
       gap: 10px;
       margin-top: 15px;
+      margin-bottom: 15px;
     }
 
     .btn {
@@ -225,6 +226,16 @@
 
     .btn-secondary:hover {
       background: #5a6268;
+      transform: translateY(-2px);
+    }
+
+    .btn-danger {
+      background: #dc3545;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #c82333;
       transform: translateY(-2px);
     }
 
@@ -279,7 +290,7 @@
     <p class="subtitle">将 EMVCo QR Code 转换为 GCash Deep Link</p>
 
     <div class="form-group">
-      <label for="qrCode">EMVCo QR Code *</label>
+      <label for="qrCode">EMVCo QR Code (可选)</label>
       <textarea id="qrCode" placeholder="粘贴您的 EMVCo QR Code 数据...&#10;例如: 00020101021228530011ph.ppmi.p2m..."></textarea>
     </div>
 
@@ -315,7 +326,25 @@
       <input type="text" id="notifyUrl" placeholder="https://yoursite.com/api/gcash/webhook">
     </div>
 
-    <button id="generateBtn" onclick="generate()">生成 Deep Link</button>
+    <div class="form-group">
+      <label for="deepLinkEdit">GCash Deep Link (可直接输入或生成)</label>
+      <textarea class="deeplink-edit" id="deepLinkEdit" rows="4"
+        placeholder="在此输入或编辑 GCash Deep Link...&#10;例如: gcash://qrcode/scan?qrdata=...&#10;&#10;或者填写上方的 QR Code 后点击下方按钮生成"></textarea>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" onclick="openGCash()">
+        🚀 打开 GCash
+      </button>
+      <button class="btn btn-secondary" onclick="copyLink()">
+        📋 复制链接
+      </button>
+      <button class="btn btn-danger" onclick="clearDeepLink()">
+        🗑️ 清空
+      </button>
+    </div>
+
+    <button id="generateBtn" onclick="generate()">从 QR Code 生成 Deep Link</button>
 
     <div id="loading" class="loading">
       <div class="spinner"></div>
@@ -326,27 +355,87 @@
 
     <div id="result" class="result">
       <h3>✅ 生成成功</h3>
-
       <div class="info-grid" id="infoGrid"></div>
-
-      <div>
-        <label style="margin-bottom: 8px; display: block;">生成的 Deep Link (可手动编辑):</label>
-        <textarea class="deeplink-edit" id="deepLinkEdit" rows="4" placeholder="Deep Link 将显示在这里，您可以手动编辑后再打开..."></textarea>
-      </div>
-
-      <div class="actions">
-        <button class="btn btn-primary" onclick="openGCash()">
-          🚀 打开 GCash
-        </button>
-        <button class="btn btn-secondary" onclick="copyLink()">
-          📋 复制链接
-        </button>
-      </div>
     </div>
   </div>
 
   <script>
     let currentDeepLink = '';
+
+    // 解析 URL 查询参数
+    function getQueryParams() {
+      const params = new URLSearchParams(window.location.search);
+      return {
+        qrdata: params.get('qrdata'),
+        gcashLink: params.get('gcash') || params.get('gcashlink') || params.get('link'),
+        orderId: params.get('orderId') || params.get('orderid'),
+        merchantId: params.get('merchantId') || params.get('merchantid'),
+        redirectUrl: params.get('redirectUrl') || params.get('redirect'),
+        notifyUrl: params.get('notifyUrl') || params.get('notify')
+      };
+    }
+
+    // 从 GCash link 提取 qrdata
+    function extractQRDataFromLink(gcashLink) {
+      try {
+        // GCash deep link 格式：gcash://qrcode/scan?qrdata=...
+        const url = new URL(gcashLink);
+        if (url.protocol === 'gcash:' && url.pathname.includes('qrcode')) {
+          const qrdata = url.searchParams.get('qrdata');
+          if (qrdata) {
+            return decodeURIComponent(qrdata);
+          }
+        }
+      } catch (e) {
+        console.error('解析 GCash link 失败：', e);
+      }
+      return null;
+    }
+
+    // 页面加载时处理 URL 参数
+    function initializeFromURL() {
+      const params = getQueryParams();
+
+      // 优先处理 gcash link
+      if (params.gcashLink) {
+        const qrdata = extractQRDataFromLink(params.gcashLink);
+        if (qrdata) {
+          document.getElementById('qrCode').value = qrdata;
+          console.log('✅ 从 GCash link 中提取了 QR Code');
+        } else {
+          // 如果不是标准的 gcash link，直接显示在 deepLinkEdit
+          document.getElementById('deepLinkEdit').value = params.gcashLink;
+          console.log('✅ 已加载 GCash Deep Link');
+        }
+      }
+      // 处理 qrdata 参数
+      else if (params.qrdata) {
+        document.getElementById('qrCode').value = decodeURIComponent(params.qrdata);
+        console.log('✅ 从 URL 参数加载了 QR Code');
+      }
+
+      // 填充其他可选参数
+      if (params.orderId) {
+        document.getElementById('orderId').value = params.orderId;
+      }
+      if (params.merchantId) {
+        document.getElementById('merchantId').value = params.merchantId;
+      }
+      if (params.redirectUrl) {
+        document.getElementById('redirectUrl').value = decodeURIComponent(params.redirectUrl);
+      }
+      if (params.notifyUrl) {
+        document.getElementById('notifyUrl').value = decodeURIComponent(params.notifyUrl);
+      }
+
+      // 如果有 qrdata 或 gcash link（且成功提取），自动生成
+      if (params.qrdata || (params.gcashLink && extractQRDataFromLink(params.gcashLink))) {
+        setTimeout(() => {
+          generate();
+        }, 500);
+      }
+    }
+
     async function generate() {
       const qrCode = document.getElementById('qrCode').value.trim();
       const orderId = document.getElementById('orderId').value.trim();
@@ -433,6 +522,9 @@
 
       // 显示结果区域
       document.getElementById('result').classList.add('show');
+
+      // 更新 URL 参数
+      updateURLParams();
     }
 
     function openGCash() {
@@ -480,6 +572,44 @@
       }
     }
 
+    function clearDeepLink() {
+      if (confirm('确定要清空 Deep Link 吗？')) {
+        document.getElementById('deepLinkEdit').value = '';
+        updateURLParams();
+      }
+    }
+
+    // 更新 URL 参数
+    function updateURLParams() {
+      const qrCode = document.getElementById('qrCode').value.trim();
+      const deepLink = document.getElementById('deepLinkEdit').value.trim();
+      const orderId = document.getElementById('orderId').value.trim();
+      const merchantId = document.getElementById('merchantId').value.trim();
+      const redirectUrl = document.getElementById('redirectUrl').value.trim();
+      const notifyUrl = document.getElementById('notifyUrl').value.trim();
+
+      const params = new URLSearchParams();
+
+      // 优先使用 deep link（如果已生成或用户直接输入）
+      if (deepLink && deepLink.startsWith('gcash://')) {
+        params.set('gcash', deepLink);
+      }
+      // 否则使用 qrdata
+      else if (qrCode) {
+        params.set('qrdata', qrCode);
+      }
+
+      // 添加其他参数
+      if (orderId) params.set('orderId', orderId);
+      if (merchantId) params.set('merchantId', merchantId);
+      if (redirectUrl) params.set('redirectUrl', redirectUrl);
+      if (notifyUrl) params.set('notifyUrl', notifyUrl);
+
+      // 更新 URL（不刷新页面）
+      const newURL = params.toString() ? `${window.location.pathname}?${params.toString()}` : window.location.pathname;
+      window.history.replaceState({}, '', newURL);
+    }
+
     function showLoading() {
       document.getElementById('loading').classList.add('show');
     }
@@ -507,10 +637,32 @@
       }
     });
 
-    // 页面加载时检查后端连接
+    // 监听输入框变化，自动更新 URL 参数
+    let updateTimeout;
+    function setupInputListeners() {
+      const inputs = ['qrCode', 'deepLinkEdit', 'orderId', 'merchantId', 'redirectUrl', 'notifyUrl'];
+      inputs.forEach(id => {
+        const element = document.getElementById(id);
+        element.addEventListener('input', () => {
+          clearTimeout(updateTimeout);
+          updateTimeout = setTimeout(() => {
+            updateURLParams();
+          }, 1000); // 延迟 1 秒更新，避免频繁更新
+        });
+      });
+    }
+
+    // 页面加载时检查后端连接并初始化 URL 参数
     window.addEventListener('load', async () => {
+      // 先初始化 URL 参数
+      initializeFromURL();
+
+      // 设置输入框监听器
+      setupInputListeners();
+
+      // 检查后端连接
       try {
-        const response = await fetch(`${API_BASE_URL}/health`);
+        const response = await fetch('/health');
         if (response.ok) {
           console.log('✅ 后端服务连接成功');
         }
