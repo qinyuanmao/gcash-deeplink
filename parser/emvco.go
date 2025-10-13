@@ -99,35 +99,54 @@ func (p *EMVCoParser) extractVariableLengthField(qrData, tag string) string {
 // parseMerchantAccountInfo 解析商户账户信息
 func (p *EMVCoParser) parseMerchantAccountInfo(qrData string, data *models.EMVCoData) {
 	// Tag 26, 27 或 28 - 商户账户信息模板
-	for _, tag := range []string{"26", "27", "28"} {
-		pattern := fmt.Sprintf(`%s(\d{2})(.{1,})`, tag)
-		if match := regexp.MustCompile(pattern).FindStringSubmatch(qrData); len(match) > 2 {
-			length, _ := strconv.Atoi(match[1])
-			if len(match[2]) >= length {
-				merchantInfo := match[2][:length]
+	// 使用逐字符解析避免正则表达式匹配错误
+	i := 0
+	for i < len(qrData)-4 {
+		tag := qrData[i : i+2]
+		if tag == "26" || tag == "27" || tag == "28" {
+			// 验证这是一个 Tag（前面应该是另一个 Tag 的结束或开始）
+			lengthStr := qrData[i+2 : i+4]
+			if len(lengthStr) == 2 && isDigit(lengthStr[0]) && isDigit(lengthStr[1]) {
+				length, _ := strconv.Atoi(lengthStr)
+				if i+4+length <= len(qrData) {
+					merchantInfo := qrData[i+4 : i+4+length]
 
-				// 提取银行代码 (子标签 00)
-				if subMatch := regexp.MustCompile(`0011([A-Z0-9]+)`).FindStringSubmatch(merchantInfo); len(subMatch) > 1 {
-					data.BankCode = subMatch[1]
-				}
+					// 提取银行代码 (tfrbnkcode) - 子标签 01
+					subIdx := 0
+					for subIdx < len(merchantInfo)-4 {
+						subTag := merchantInfo[subIdx : subIdx+2]
+						subLengthStr := merchantInfo[subIdx+2 : subIdx+4]
+						if len(subLengthStr) == 2 && isDigit(subLengthStr[0]) && isDigit(subLengthStr[1]) {
+							subLength, _ := strconv.Atoi(subLengthStr)
+							if subIdx+4+subLength <= len(merchantInfo) {
+								subValue := merchantInfo[subIdx+4 : subIdx+4+subLength]
 
-				// 提取 ShopID (子标签 01, 03, 或 04)
-				// 优先从子标签 03 提取（这是标准的 ShopID 位置）
-				for _, subTag := range []string{"03", "01", "04"} {
-					pattern := fmt.Sprintf(`%s(\d{2})(.+?)(?:\d{2}\d{2}|$)`, subTag)
-					if subMatch := regexp.MustCompile(pattern).FindStringSubmatch(merchantInfo); len(subMatch) > 2 {
-						subLength, _ := strconv.Atoi(subMatch[1])
-						if len(subMatch[2]) >= subLength {
-							data.ShopID = subMatch[2][:subLength]
+								if subTag == "01" {
+									data.BankCode = subValue
+								} else if subTag == "03" {
+									data.ShopID = subValue
+								}
+
+								subIdx += 4 + subLength
+							} else {
+								break
+							}
+						} else {
 							break
 						}
 					}
-				}
 
-				break
+					return // 找到并处理完 Tag 26/27/28，退出
+				}
 			}
 		}
+		i++
 	}
+}
+
+// isDigit 检查字符是否为数字
+func isDigit(c byte) bool {
+	return c >= '0' && c <= '9'
 }
 
 // parseAdditionalData 解析附加数据
