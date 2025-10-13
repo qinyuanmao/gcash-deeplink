@@ -21,7 +21,8 @@ type EMVCoData struct {
 	BankCode string // 银行代码
 
 	// 附加数据
-	AcqInfo        string // 获取方信息
+	AcqInfo03      string // 获取方信息
+	AcqInfo05      string // 获取方信息
 	OrderReference string // 订单参考号
 	CRC            string // Tag 63 - CRC 校验码
 

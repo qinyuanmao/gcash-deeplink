@@ -43,7 +43,7 @@ func printBanner() {
 }
 
 func runExamples() {
-	fmt.Println("=== 运行示例 ===\n")
+	fmt.Println("=== 运行示例 ===")
 
 	// 示例 1: 基础用法
 	example1()
@@ -60,7 +60,7 @@ func runExamples() {
 }
 
 func example1() {
-	fmt.Println("【示例 1: 基础用法】\n")
+	fmt.Println("【示例 1: 基础用法】")
 
 	qrCode := "00020101021228530011ph.ppmi.p2m0111SRCPPHM2XXX0312MRCHNT-4H3TZ05030005204519953036085406100.005802PH5925SOCMED DIGITAL MARKETING 6010MakatiCity62650010ph.starpay0315SOCMED DIGITAL 0509OR#1Z1CSC0708TodayPay0803***88290012ph.ppmi.qrph0109OR#1Z1CSC63040275"
 
@@ -87,7 +87,7 @@ func example1() {
 }
 
 func example2() {
-	fmt.Println("【示例 2: 带回调的订单支付】\n")
+	fmt.Println("【示例 2: 带回调的订单支付】")
 
 	qrCode := "00020101021228790011ph.ppmi.p2m0111PAEYPHM2XXX0324VkHUE2Fz8Ee2YxnTVPX34TZs0410030300288605030105204739953036085406100.005802PH5916NEXA ONLINE SHOP6013General Trias62430012ph.ppmi.qrph0306wWMBdH05062110000803***88440012ph.ppmi.qrph0124VkHUE2Fz8Ee2YxnTVPX34TZs63041C3C"
 
@@ -115,7 +115,7 @@ func example2() {
 }
 
 func example3() {
-	fmt.Println("【示例 3: 生成多种策略的 Deep Link】\n")
+	fmt.Println("【示例 3: 生成多种策略的 Deep Link】")
 
 	qrCode := "00020101021228530011ph.ppmi.p2m0111SRCPPHM2XXX0312MRCHNT-4H3TZ05030005204519953036085406100.005802PH5925SOCMED DIGITAL MARKETING 6010MakatiCity62650010ph.starpay0315SOCMED DIGITAL 0509OR#1Z1CSC0708TodayPay0803***88290012ph.ppmi.qrph0109OR#1Z1CSC63040275"
 

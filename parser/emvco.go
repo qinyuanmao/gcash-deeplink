@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	
+
 	"github.com/qinyuanmao/gcash-deeplink/models"
 )
 
@@ -85,7 +85,7 @@ func (p *EMVCoParser) Parse(qrData string) (*models.EMVCoData, error) {
 
 // extractVariableLengthField 提取可变长度字段
 func (p *EMVCoParser) extractVariableLengthField(qrData, tag string) string {
-	// 匹配格式: TAG + LENGTH(2位) + VALUE
+	// 匹配格式：TAG + LENGTH(2 位) + VALUE
 	pattern := fmt.Sprintf(`%s(\d{2})(.+?)(?:\d{2}\d{2}|$)`, tag)
 	if match := regexp.MustCompile(pattern).FindStringSubmatch(qrData); len(match) > 2 {
 		length, _ := strconv.Atoi(match[1])
@@ -98,22 +98,24 @@ func (p *EMVCoParser) extractVariableLengthField(qrData, tag string) string {
 
 // parseMerchantAccountInfo 解析商户账户信息
 func (p *EMVCoParser) parseMerchantAccountInfo(qrData string, data *models.EMVCoData) {
-	// Tag 26 或 27 - 商户账户信息模板
+	// Tag 26, 27 或 28 - 商户账户信息模板
 	for _, tag := range []string{"26", "27", "28"} {
-		pattern := fmt.Sprintf(`%s(\d{2})(.+?)(?:(?:2[6-9]|[3-9]\d)\d{2}|$)`, tag)
+		pattern := fmt.Sprintf(`%s(\d{2})(.{1,})`, tag)
 		if match := regexp.MustCompile(pattern).FindStringSubmatch(qrData); len(match) > 2 {
 			length, _ := strconv.Atoi(match[1])
 			if len(match[2]) >= length {
 				merchantInfo := match[2][:length]
-				
+
 				// 提取银行代码 (子标签 00)
 				if subMatch := regexp.MustCompile(`0011([A-Z0-9]+)`).FindStringSubmatch(merchantInfo); len(subMatch) > 1 {
 					data.BankCode = subMatch[1]
 				}
-				
+
 				// 提取 ShopID (子标签 01, 03, 或 04)
-				for _, subTag := range []string{"01", "03", "04"} {
-					if subMatch := regexp.MustCompile(fmt.Sprintf(`%s(\d{2})([A-Z0-9\-]+)`, subTag)).FindStringSubmatch(merchantInfo); len(subMatch) > 2 {
+				// 优先从子标签 03 提取（这是标准的 ShopID 位置）
+				for _, subTag := range []string{"03", "01", "04"} {
+					pattern := fmt.Sprintf(`%s(\d{2})(.+?)(?:\d{2}\d{2}|$)`, subTag)
+					if subMatch := regexp.MustCompile(pattern).FindStringSubmatch(merchantInfo); len(subMatch) > 2 {
 						subLength, _ := strconv.Atoi(subMatch[1])
 						if len(subMatch[2]) >= subLength {
 							data.ShopID = subMatch[2][:subLength]
@@ -121,7 +123,7 @@ func (p *EMVCoParser) parseMerchantAccountInfo(qrData string, data *models.EMVCo
 						}
 					}
 				}
-				
+
 				break
 			}
 		}
@@ -136,7 +138,7 @@ func (p *EMVCoParser) parseAdditionalData(qrData string, data *models.EMVCoData)
 		length, _ := strconv.Atoi(match[1])
 		if len(match[2]) >= length {
 			additionalData := match[2][:length]
-			
+
 			// 子标签 01 - 账单号/订单参考号
 			if subMatch := regexp.MustCompile(`01(\d{2})(.+)`).FindStringSubmatch(additionalData); len(subMatch) > 2 {
 				subLength, _ := strconv.Atoi(subMatch[1])
@@ -146,45 +148,21 @@ func (p *EMVCoParser) parseAdditionalData(qrData string, data *models.EMVCoData)
 			}
 
 			// 子标签 03 - 获取方信息 (某些 QR Code 中 AcqInfo 在这里)
-			var acqInfo03 string
 			if subMatch := regexp.MustCompile(`03(\d{2})(.+)`).FindStringSubmatch(additionalData); len(subMatch) > 2 {
 				subLength, _ := strconv.Atoi(subMatch[1])
 				if len(subMatch[2]) >= subLength {
-					acqInfo03 = subMatch[2][:subLength]
+					data.AcqInfo03 = subMatch[2][:subLength]
 				}
 			}
 
 			// 子标签 05 - 获取方信息 (某些 QR Code 中 AcqInfo 在这里)
-			var acqInfo05 string
 			if subMatch := regexp.MustCompile(`05(\d{2})(.+)`).FindStringSubmatch(additionalData); len(subMatch) > 2 {
 				subLength, _ := strconv.Atoi(subMatch[1])
 				if len(subMatch[2]) >= subLength {
-					acqInfo05 = subMatch[2][:subLength]
+					data.AcqInfo05 = subMatch[2][:subLength]
 				}
 			}
 
-			// 选择合适的 AcqInfo
-			// 策略：优先使用包含非数字字符的值
-			// 1. 如果 acqInfo05 包含非数字字符，使用 acqInfo05
-			// 2. 否则，如果 acqInfo03 包含非数字字符，使用 acqInfo03
-			// 3. 否则，使用 acqInfo05（如果有）
-			// 4. 最后使用 acqInfo03
-			isDigitOnly03 := acqInfo03 != "" && regexp.MustCompile(`^\d+$`).MatchString(acqInfo03)
-			isDigitOnly05 := acqInfo05 != "" && regexp.MustCompile(`^\d+$`).MatchString(acqInfo05)
-
-			if acqInfo05 != "" && !isDigitOnly05 {
-				// acqInfo05 有非数字字符，优先使用
-				data.AcqInfo = acqInfo05
-			} else if acqInfo03 != "" && !isDigitOnly03 {
-				// acqInfo03 有非数字字符，使用它
-				data.AcqInfo = acqInfo03
-			} else if acqInfo05 != "" {
-				// 两者都是纯数字或为空，优先使用 acqInfo05
-				data.AcqInfo = acqInfo05
-			} else {
-				// 最后使用 acqInfo03
-				data.AcqInfo = acqInfo03
-			}
 		}
 	}
 }
