@@ -48,13 +48,14 @@ type DeepLinkOptions struct {
 	OrderAmount string // 订单金额
 
 	// 可选参数
-	MerchantID  string      // 商户 ID (可选)
-	OrderID     string      // 订单 ID
-	PaymentType PaymentType // 支付类型
-	RedirectURL string      // 支付完成后跳转 URL
-	NotifyURL   string      // 服务器回调通知 URL
-	ClientID    string      // 客户端 ID (自动生成)
-	ShopID      string      // 店铺 ID
+	MerchantID   string      // 商户 ID (可选)
+	MerchantName string      // 商户名称 (可选)
+	OrderID      string      // 订单 ID
+	PaymentType  PaymentType // 支付类型
+	RedirectURL  string      // 支付完成后跳转 URL
+	NotifyURL    string      // 服务器回调通知 URL
+	ClientID     string      // 客户端 ID (自动生成)
+	ShopID       string      // 店铺 ID
 
 	// 高级选项
 	EnableLucky  bool   // 是否启用抽奖

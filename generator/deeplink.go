@@ -119,6 +119,7 @@ func (g *DeepLinkGenerator) buildParameters(data *models.EMVCoData, options *mod
 
 	// 可选参数 - 只在有值时添加
 	g.addIfNotEmpty(values, "merchantId", options.MerchantID)
+	g.addIfNotEmpty(values, "merchantName", options.MerchantName)
 	g.addIfNotEmpty(values, "orderId", options.OrderID)
 	g.addIfNotEmpty(values, "tfrbnkcode", data.BankCode)
 	g.addIfNotEmpty(values, "shopId", data.ShopID)
