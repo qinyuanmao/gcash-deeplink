@@ -110,7 +110,6 @@ func (g *DeepLinkGenerator) buildParameters(data *models.EMVCoData, options *mod
 	// 必需参数
 	values.Add("qrCode", options.QRCode)
 	values.Add("orderAmount", options.OrderAmount)
-	values.Add("merchantName", data.MerchantName)
 	values.Add("qrCodeFormat", "EMVCO")
 	values.Add("sub", "p2mpay")
 	values.Add("lucky", fmt.Sprintf("%t", options.EnableLucky))
@@ -119,7 +118,6 @@ func (g *DeepLinkGenerator) buildParameters(data *models.EMVCoData, options *mod
 
 	// 可选参数 - 只在有值时添加
 	g.addIfNotEmpty(values, "merchantId", options.MerchantID)
-	g.addIfNotEmpty(values, "merchantName", options.MerchantName)
 	g.addIfNotEmpty(values, "orderId", options.OrderID)
 	g.addIfNotEmpty(values, "tfrbnkcode", data.BankCode)
 	g.addIfNotEmpty(values, "shopId", data.ShopID)
@@ -127,6 +125,11 @@ func (g *DeepLinkGenerator) buildParameters(data *models.EMVCoData, options *mod
 	g.addIfNotEmpty(values, "acqInfo", data.AcqInfo03)
 	g.addIfNotEmpty(values, "merchantCity", data.MerchantCity)
 	g.addIfNotEmpty(values, "merchantCategoryCode", data.MerchantCategoryCode)
+	if options.MerchantName != "" {
+		values.Add("merchantName", options.MerchantName)
+	} else {
+		values.Add("merchantName", data.MerchantName)
+	}
 
 	// 回调 URL
 	g.addIfNotEmpty(values, "redirectUrl", options.RedirectURL)
