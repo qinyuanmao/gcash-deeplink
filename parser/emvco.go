@@ -53,10 +53,8 @@ func (p *EMVCoParser) Parse(qrData string) (*models.EMVCoData, error) {
 		data.Currency = match[1]
 	}
 
-	// 解析金额 (Tag 54)
-	if match := regexp.MustCompile(`5406([\d.]+)`).FindStringSubmatch(qrData); len(match) > 1 {
-		data.Amount = match[1]
-	}
+	// 解析金额 (Tag 54) - 使用 TLV 格式解析避免贪婪匹配
+	data.Amount = p.extractVariableLengthField(qrData, "54")
 
 	// 解析国家代码 (Tag 58)
 	if match := regexp.MustCompile(`5802([A-Z]{2})`).FindStringSubmatch(qrData); len(match) > 1 {
@@ -85,13 +83,27 @@ func (p *EMVCoParser) Parse(qrData string) (*models.EMVCoData, error) {
 
 // extractVariableLengthField 提取可变长度字段
 func (p *EMVCoParser) extractVariableLengthField(qrData, tag string) string {
-	// 匹配格式：TAG + LENGTH(2 位) + VALUE
-	pattern := fmt.Sprintf(`%s(\d{2})(.+?)(?:\d{2}\d{2}|$)`, tag)
-	if match := regexp.MustCompile(pattern).FindStringSubmatch(qrData); len(match) > 2 {
-		length, _ := strconv.Atoi(match[1])
-		if len(match[2]) >= length {
-			return strings.TrimSpace(match[2][:length])
+	// 按照 TLV（Tag-Length-Value）格式逐个解析，避免误匹配嵌套数据
+	i := 0
+	for i < len(qrData)-4 {
+		currentTag := qrData[i : i+2]
+		lengthStr := qrData[i+2 : i+4]
+
+		if len(lengthStr) == 2 && isDigit(lengthStr[0]) && isDigit(lengthStr[1]) {
+			length, err := strconv.Atoi(lengthStr)
+			if err == nil && i+4+length <= len(qrData) {
+				// 检查是否是目标 Tag
+				if currentTag == tag {
+					value := qrData[i+4 : i+4+length]
+					return strings.TrimSpace(value)
+				}
+				// 跳过整个 Tag（Tag + Length + Value）
+				i += 4 + length
+				continue
+			}
 		}
+		// 如果解析失败，移动一个字符
+		i++
 	}
 	return ""
 }
@@ -111,29 +123,17 @@ func (p *EMVCoParser) parseMerchantAccountInfo(qrData string, data *models.EMVCo
 				if i+4+length <= len(qrData) {
 					merchantInfo := qrData[i+4 : i+4+length]
 
+					// 解析子标签
+					subTags := p.parseSubTags(merchantInfo)
+
 					// 提取银行代码 (tfrbnkcode) - 子标签 01
-					subIdx := 0
-					for subIdx < len(merchantInfo)-4 {
-						subTag := merchantInfo[subIdx : subIdx+2]
-						subLengthStr := merchantInfo[subIdx+2 : subIdx+4]
-						if len(subLengthStr) == 2 && isDigit(subLengthStr[0]) && isDigit(subLengthStr[1]) {
-							subLength, _ := strconv.Atoi(subLengthStr)
-							if subIdx+4+subLength <= len(merchantInfo) {
-								subValue := merchantInfo[subIdx+4 : subIdx+4+subLength]
+					if val, exists := subTags["01"]; exists {
+						data.BankCode = val
+					}
 
-								if subTag == "01" {
-									data.BankCode = subValue
-								} else if subTag == "03" {
-									data.ShopID = subValue
-								}
-
-								subIdx += 4 + subLength
-							} else {
-								break
-							}
-						} else {
-							break
-						}
+					// 提取店铺 ID - 子标签 03
+					if val, exists := subTags["03"]; exists {
+						data.ShopID = val
 					}
 
 					return // 找到并处理完 Tag 26/27/28，退出
@@ -158,32 +158,57 @@ func (p *EMVCoParser) parseAdditionalData(qrData string, data *models.EMVCoData)
 		if len(match[2]) >= length {
 			additionalData := match[2][:length]
 
+			// 解析子标签
+			subTags := p.parseSubTags(additionalData)
+
 			// 子标签 01 - 账单号/订单参考号
-			if subMatch := regexp.MustCompile(`01(\d{2})(.+)`).FindStringSubmatch(additionalData); len(subMatch) > 2 {
-				subLength, _ := strconv.Atoi(subMatch[1])
-				if len(subMatch[2]) >= subLength {
-					data.OrderReference = subMatch[2][:subLength]
-				}
+			if val, exists := subTags["01"]; exists {
+				data.OrderReference = val
 			}
 
-			// 子标签 03 - 获取方信息 (某些 QR Code 中 AcqInfo 在这里)
-			if subMatch := regexp.MustCompile(`03(\d{2})(.+)`).FindStringSubmatch(additionalData); len(subMatch) > 2 {
-				subLength, _ := strconv.Atoi(subMatch[1])
-				if len(subMatch[2]) >= subLength {
-					data.AcqInfo03 = subMatch[2][:subLength]
-				}
+			// 子标签 05 - 获取方信息 (优先使用)
+			if val, exists := subTags["05"]; exists {
+				data.AcqInfo = val
+			} else if val, exists := subTags["03"]; exists {
+				// 子标签 03 - 获取方信息 (备用)
+				data.AcqInfo = val
 			}
-
-			// 子标签 05 - 获取方信息 (某些 QR Code 中 AcqInfo 在这里)
-			if subMatch := regexp.MustCompile(`05(\d{2})(.+)`).FindStringSubmatch(additionalData); len(subMatch) > 2 {
-				subLength, _ := strconv.Atoi(subMatch[1])
-				if len(subMatch[2]) >= subLength {
-					data.AcqInfo05 = subMatch[2][:subLength]
-				}
-			}
-
 		}
 	}
+}
+
+// parseSubTags 解析子标签
+func (p *EMVCoParser) parseSubTags(tagData string) map[string]string {
+	subTags := make(map[string]string)
+	pos := 0
+	dataLen := len(tagData)
+
+	for pos < dataLen {
+		if pos+4 > dataLen {
+			break
+		}
+
+		// 读取 Sub-tag (2 字节)
+		subTag := tagData[pos : pos+2]
+		pos += 2
+
+		// 读取 Length (2 字节)
+		lengthStr := tagData[pos : pos+2]
+		pos += 2
+
+		length, err := strconv.Atoi(lengthStr)
+		if err != nil || pos+length > dataLen {
+			break
+		}
+
+		// 读取 Value
+		value := tagData[pos : pos+length]
+		pos += length
+
+		subTags[subTag] = value
+	}
+
+	return subTags
 }
 
 // Validate 验证 EMVCo QR Code

@@ -21,8 +21,7 @@ type EMVCoData struct {
 	BankCode string // 银行代码
 
 	// 附加数据
-	AcqInfo03      string // 获取方信息
-	AcqInfo05      string // 获取方信息
+	AcqInfo        string // 获取方信息
 	OrderReference string // 订单参考号
 	CRC            string // Tag 63 - CRC 校验码
 
@@ -44,8 +43,10 @@ const (
 // DeepLinkOptions GCash Deep Link 生成选项
 type DeepLinkOptions struct {
 	// 必需参数
-	QRCode      string // EMVCo QR Code 数据
-	OrderAmount string // 订单金额
+	QRCode               string // EMVCo QR Code 数据
+	OrderAmount          string // 订单金额
+	AcqInfo              string // 获取方信息
+	MerchantCategoryCode string // 商户分类码 (MCC)
 
 	// 可选参数
 	MerchantID   string      // 商户 ID (可选)
