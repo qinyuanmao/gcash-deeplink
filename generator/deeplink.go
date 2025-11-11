@@ -3,7 +3,6 @@ package generator
 import (
 	"fmt"
 	"net/url"
-	"strconv"
 	"time"
 
 	"github.com/qinyuanmao/gcash-deeplink/models"
@@ -79,8 +78,7 @@ func (g *DeepLinkGenerator) fillDefaults(data *models.EMVCoData, options *models
 
 	// 订单金额
 	if options.OrderAmount == "" {
-		amount, _ := strconv.ParseFloat(data.Amount, 64)
-		options.OrderAmount = strconv.FormatFloat(amount, 'f', 2, 64)
+		options.OrderAmount = data.Amount
 	}
 
 	// 客户端 ID
@@ -97,10 +95,6 @@ func (g *DeepLinkGenerator) fillDefaults(data *models.EMVCoData, options *models
 		} else {
 			options.PaymentType = models.PaymentTypeStandard // 标准支付
 		}
-	}
-
-	if options.AcqInfo == "" {
-		options.AcqInfo = data.AcqInfo
 	}
 
 	// 业务单号
@@ -121,7 +115,6 @@ func (g *DeepLinkGenerator) buildParameters(data *models.EMVCoData, options *mod
 	values.Add("lucky", fmt.Sprintf("%t", options.EnableLucky))
 	values.Add("bizNo", options.BizNo)
 	values.Add("clientId", options.ClientID)
-	values.Add("merchantCity", data.MerchantCity)
 
 	// 可选参数 - 只在有值时添加
 	g.addIfNotEmpty(values, "merchantId", options.MerchantID)
@@ -129,14 +122,9 @@ func (g *DeepLinkGenerator) buildParameters(data *models.EMVCoData, options *mod
 	g.addIfNotEmpty(values, "tfrbnkcode", data.BankCode)
 	g.addIfNotEmpty(values, "shopId", data.ShopID)
 	g.addIfNotEmpty(values, "tfrAcctNo", data.ShopID)
-	g.addIfNotEmpty(values, "acqInfo", data.AcqInfo)
-
-	if options.MerchantCategoryCode != "" {
-		values.Add("merchantCategoryCode", options.MerchantCategoryCode)
-	} else {
-		values.Add("merchantCategoryCode", data.MerchantCategoryCode)
-	}
-
+	g.addIfNotEmpty(values, "acqInfo", data.AcqInfo03)
+	g.addIfNotEmpty(values, "merchantCity", data.MerchantCity)
+	g.addIfNotEmpty(values, "merchantCategoryCode", data.MerchantCategoryCode)
 	if options.MerchantName != "" {
 		values.Add("merchantName", options.MerchantName)
 	} else {
@@ -172,26 +160,21 @@ func (g *DeepLinkGenerator) buildParam5(data *models.EMVCoData, options *models.
 		return options.CustomParam5
 	}
 
-	// param5 格式：ShopID~MerchantName~~~AcqInfo
-	// 中间参数使用商户名称
-	if data.ShopID != "" {
-		merchantName := data.MerchantName
-		if options.MerchantName != "" {
-			merchantName = options.MerchantName
-		}
-
-		if data.AcqInfo != "" {
-			// 使用格式：ShopID~MerchantName~~~AcqInfo
+	// param5 格式：ShopID~AcqInfo~~~另一个值
+	// 根据真实 GCash Deep Link 示例分析
+	if data.ShopID != "" && data.AcqInfo03 != "" {
+		if data.AcqInfo05 != "" {
+			// 如果有两个 AcqInfo，使用格式：ShopID~AcqInfo03~~~AcqInfo05
 			return fmt.Sprintf("%s~%s~~~%s",
 				data.ShopID,
-				merchantName,
-				data.AcqInfo,
+				data.AcqInfo03,
+				data.AcqInfo05,
 			)
 		} else {
-			// 只有商户名称，使用格式：ShopID~MerchantName~~~
+			// 只有 AcqInfo03，使用格式：ShopID~AcqInfo03~~~
 			return fmt.Sprintf("%s~%s~~~",
 				data.ShopID,
-				merchantName,
+				data.AcqInfo03,
 			)
 		}
 	}
