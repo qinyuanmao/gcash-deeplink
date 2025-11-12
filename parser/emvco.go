@@ -170,38 +170,71 @@ func isDigit(c byte) bool {
 
 // parseAdditionalData 解析附加数据
 func (p *EMVCoParser) parseAdditionalData(qrData string, data *models.EMVCoData) {
-	// Tag 62 - 附加数据模板
-	pattern := `62(\d{2})(.+?)(?:63\d{2}|$)`
-	if match := regexp.MustCompile(pattern).FindStringSubmatch(qrData); len(match) > 2 {
-		length, _ := strconv.Atoi(match[1])
-		if len(match[2]) >= length {
-			additionalData := match[2][:length]
+	// 使用 TLV 顺序解析来查找 Tag 62
+	i := 0
+	for i <= len(qrData)-4 {
+		tag := qrData[i : i+2]
+		lengthStr := qrData[i+2 : i+4]
 
-			// 子标签 01 - 账单号/订单参考号
-			if subMatch := regexp.MustCompile(`01(\d{2})(.+)`).FindStringSubmatch(additionalData); len(subMatch) > 2 {
-				subLength, _ := strconv.Atoi(subMatch[1])
-				if len(subMatch[2]) >= subLength {
-					data.OrderReference = subMatch[2][:subLength]
-				}
-			}
-
-			// 子标签 03 - Store Label (商店标签/获取方信息)
-			if subMatch := regexp.MustCompile(`03(\d{2})(.+)`).FindStringSubmatch(additionalData); len(subMatch) > 2 {
-				subLength, _ := strconv.Atoi(subMatch[1])
-				if len(subMatch[2]) >= subLength {
-					data.AcqInfo03 = subMatch[2][:subLength]
-				}
-			}
-
-			// 子标签 05 - Reference Label (参考标签/获取方信息)
-			if subMatch := regexp.MustCompile(`05(\d{2})(.+)`).FindStringSubmatch(additionalData); len(subMatch) > 2 {
-				subLength, _ := strconv.Atoi(subMatch[1])
-				if len(subMatch[2]) >= subLength {
-					data.AcqInfo05 = subMatch[2][:subLength]
-				}
-			}
-
+		if !isDigit(lengthStr[0]) || !isDigit(lengthStr[1]) {
+			i++
+			continue
 		}
+
+		length, err := strconv.Atoi(lengthStr)
+		if err != nil {
+			i++
+			continue
+		}
+
+		if i+4+length > len(qrData) {
+			i++
+			continue
+		}
+
+		// 找到 Tag 62 (附加数据)
+		if tag == "62" {
+			additionalData := qrData[i+4 : i+4+length]
+
+			// 解析 Tag 62 的子标签
+			j := 0
+			for j <= len(additionalData)-4 {
+				subTag := additionalData[j : j+2]
+				subLengthStr := additionalData[j+2 : j+4]
+
+				if !isDigit(subLengthStr[0]) || !isDigit(subLengthStr[1]) {
+					break
+				}
+
+				subLength, err := strconv.Atoi(subLengthStr)
+				if err != nil {
+					break
+				}
+
+				if j+4+subLength > len(additionalData) {
+					break
+				}
+
+				subValue := additionalData[j+4 : j+4+subLength]
+
+				// 根据子标签类型存储数据
+				switch subTag {
+				case "01":
+					data.OrderReference = subValue
+				case "03":
+					data.AcqInfo03 = subValue
+				case "05":
+					data.AcqInfo05 = subValue
+				}
+
+				j += 4 + subLength
+			}
+
+			return // 找到并处理完 Tag 62,退出
+		}
+
+		// 跳过当前 TLV
+		i += 4 + length
 	}
 }
 

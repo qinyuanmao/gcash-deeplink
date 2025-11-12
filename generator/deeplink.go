@@ -159,7 +159,7 @@ func (g *DeepLinkGenerator) buildParam3(options *models.DeepLinkOptions) string 
 
 // buildParam5 构建 param5 参数
 func (g *DeepLinkGenerator) buildParam5(data *models.EMVCoData, options *models.DeepLinkOptions) string {
-	// param5 格式：ShopID~MerchantName~~~AcqInfo
+	// param5 格式：ShopID~AcqInfo03~~~AcqInfo05
 	// 只要有 ShopID 就生成 param5
 	if options.ShopID != "" {
 		// 有 AcqInfo，使用格式：ShopID~AcqInfo03~~~AcqInfo05
