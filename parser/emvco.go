@@ -185,28 +185,20 @@ func (p *EMVCoParser) parseAdditionalData(qrData string, data *models.EMVCoData)
 				}
 			}
 
-			// 获取方信息 - 优先使用子标签 05 (Reference Label),如果没有则使用子标签 03 (Store Label)
-			var acqInfo03, acqInfo05 string
-
+			// 子标签 03 - Store Label (商店标签/获取方信息)
 			if subMatch := regexp.MustCompile(`03(\d{2})(.+)`).FindStringSubmatch(additionalData); len(subMatch) > 2 {
 				subLength, _ := strconv.Atoi(subMatch[1])
 				if len(subMatch[2]) >= subLength {
-					acqInfo03 = subMatch[2][:subLength]
+					data.AcqInfo03 = subMatch[2][:subLength]
 				}
 			}
 
+			// 子标签 05 - Reference Label (参考标签/获取方信息)
 			if subMatch := regexp.MustCompile(`05(\d{2})(.+)`).FindStringSubmatch(additionalData); len(subMatch) > 2 {
 				subLength, _ := strconv.Atoi(subMatch[1])
 				if len(subMatch[2]) >= subLength {
-					acqInfo05 = subMatch[2][:subLength]
+					data.AcqInfo05 = subMatch[2][:subLength]
 				}
-			}
-
-			// 优先使用 05,如果没有则使用 03
-			if acqInfo05 != "" {
-				data.AcqInfo = acqInfo05
-			} else if acqInfo03 != "" {
-				data.AcqInfo = acqInfo03
 			}
 
 		}

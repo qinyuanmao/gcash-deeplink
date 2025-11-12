@@ -21,7 +21,8 @@ type EMVCoData struct {
 	BankCode string // 银行代码
 
 	// 附加数据
-	AcqInfo        string // Tag 62 子标签 05 或 03 - 获取方信息 (优先使用 05)
+	AcqInfo03      string // Tag 62 子标签 03 - Store Label (商店标签)
+	AcqInfo05      string // Tag 62 子标签 05 - Reference Label (参考标签)
 	OrderReference string // Tag 62 子标签 01 - 订单参考号
 	CRC            string // Tag 63 - CRC 校验码
 
@@ -58,7 +59,6 @@ type DeepLinkOptions struct {
 	ShopID               string      // 店铺 ID
 
 	// 高级选项
-	AcqInfo     string // 获取方信息
 	EnableLucky bool   // 是否启用抽奖
 	BizNo       string // 业务单号
 }
