@@ -21,9 +21,8 @@ type EMVCoData struct {
 	BankCode string // 银行代码
 
 	// 附加数据
-	AcqInfo03      string // 获取方信息
-	AcqInfo05      string // 获取方信息
-	OrderReference string // 订单参考号
+	AcqInfo        string // Tag 62 子标签 05 或 03 - 获取方信息 (优先使用 05)
+	OrderReference string // Tag 62 子标签 01 - 订单参考号
 	CRC            string // Tag 63 - CRC 校验码
 
 	// 原始数据
@@ -48,20 +47,20 @@ type DeepLinkOptions struct {
 	OrderAmount string // 订单金额
 
 	// 可选参数
-	MerchantID   string      // 商户 ID (可选)
-	MerchantName string      // 商户名称 (可选)
-	OrderID      string      // 订单 ID
-	PaymentType  PaymentType // 支付类型
-	RedirectURL  string      // 支付完成后跳转 URL
-	NotifyURL    string      // 服务器回调通知 URL
-	ClientID     string      // 客户端 ID (自动生成)
-	ShopID       string      // 店铺 ID
+	MerchantID           string      // 商户 ID (可选)
+	MerchantName         string      // 商户名称 (可选)
+	OrderID              string      // 订单 ID
+	PaymentType          PaymentType // 支付类型
+	RedirectURL          string      // 支付完成后跳转 URL
+	MerchantCategoryCode string      // 商户分类码 (MCC)
+	NotifyURL            string      // 服务器回调通知 URL
+	ClientID             string      // 客户端 ID (自动生成)
+	ShopID               string      // 店铺 ID
 
 	// 高级选项
-	EnableLucky  bool   // 是否启用抽奖
-	BizNo        string // 业务单号
-	CustomParam3 string // 自定义 param3
-	CustomParam5 string // 自定义 param5
+	AcqInfo     string // 获取方信息
+	EnableLucky bool   // 是否启用抽奖
+	BizNo       string // 业务单号
 }
 
 // DeepLinkResult Deep Link 生成结果

@@ -44,24 +44,16 @@ func (p *EMVCoParser) Parse(qrData string) (*models.EMVCoData, error) {
 	}
 
 	// 解析商户分类代码 (Tag 52)
-	if match := regexp.MustCompile(`5204(\d{4})`).FindStringSubmatch(qrData); len(match) > 1 {
-		data.MerchantCategoryCode = match[1]
-	}
+	data.MerchantCategoryCode = p.extractVariableLengthField(qrData, "52")
 
 	// 解析货币代码 (Tag 53)
-	if match := regexp.MustCompile(`5303(\d{3})`).FindStringSubmatch(qrData); len(match) > 1 {
-		data.Currency = match[1]
-	}
+	data.Currency = p.extractVariableLengthField(qrData, "53")
 
 	// 解析金额 (Tag 54)
-	if match := regexp.MustCompile(`5406([\d.]+)`).FindStringSubmatch(qrData); len(match) > 1 {
-		data.Amount = match[1]
-	}
+	data.Amount = p.extractVariableLengthField(qrData, "54")
 
 	// 解析国家代码 (Tag 58)
-	if match := regexp.MustCompile(`5802([A-Z]{2})`).FindStringSubmatch(qrData); len(match) > 1 {
-		data.CountryCode = match[1]
-	}
+	data.CountryCode = p.extractVariableLengthField(qrData, "58")
 
 	// 解析商户名称 (Tag 59)
 	data.MerchantName = p.extractVariableLengthField(qrData, "59")
@@ -85,13 +77,40 @@ func (p *EMVCoParser) Parse(qrData string) (*models.EMVCoData, error) {
 
 // extractVariableLengthField 提取可变长度字段
 func (p *EMVCoParser) extractVariableLengthField(qrData, tag string) string {
-	// 匹配格式：TAG + LENGTH(2 位) + VALUE
-	pattern := fmt.Sprintf(`%s(\d{2})(.+?)(?:\d{2}\d{2}|$)`, tag)
-	if match := regexp.MustCompile(pattern).FindStringSubmatch(qrData); len(match) > 2 {
-		length, _ := strconv.Atoi(match[1])
-		if len(match[2]) >= length {
-			return strings.TrimSpace(match[2][:length])
+	// 按照 EMVCo TLV (Tag-Length-Value) 结构顺序解析
+	// 这样可以避免匹配到值内部的数字模式
+	i := 0
+	for i <= len(qrData)-4 {
+		// 读取当前位置的 tag (2字节)
+		currentTag := qrData[i : i+2]
+
+		// 读取长度字段 (2字节)
+		lengthStr := qrData[i+2 : i+4]
+		if !isDigit(lengthStr[0]) || !isDigit(lengthStr[1]) {
+			i++
+			continue
 		}
+
+		length, err := strconv.Atoi(lengthStr)
+		if err != nil {
+			i++
+			continue
+		}
+
+		// 检查是否有足够的数据
+		if i+4+length > len(qrData) {
+			i++
+			continue
+		}
+
+		// 如果是我们要找的 tag,返回值
+		if currentTag == tag {
+			value := qrData[i+4 : i+4+length]
+			return strings.TrimSpace(value)
+		}
+
+		// 跳过当前 TLV (Tag + Length + Value)
+		i += 4 + length
 	}
 	return ""
 }
@@ -166,20 +185,28 @@ func (p *EMVCoParser) parseAdditionalData(qrData string, data *models.EMVCoData)
 				}
 			}
 
-			// 子标签 03 - 获取方信息 (某些 QR Code 中 AcqInfo 在这里)
+			// 获取方信息 - 优先使用子标签 05 (Reference Label),如果没有则使用子标签 03 (Store Label)
+			var acqInfo03, acqInfo05 string
+
 			if subMatch := regexp.MustCompile(`03(\d{2})(.+)`).FindStringSubmatch(additionalData); len(subMatch) > 2 {
 				subLength, _ := strconv.Atoi(subMatch[1])
 				if len(subMatch[2]) >= subLength {
-					data.AcqInfo03 = subMatch[2][:subLength]
+					acqInfo03 = subMatch[2][:subLength]
 				}
 			}
 
-			// 子标签 05 - 获取方信息 (某些 QR Code 中 AcqInfo 在这里)
 			if subMatch := regexp.MustCompile(`05(\d{2})(.+)`).FindStringSubmatch(additionalData); len(subMatch) > 2 {
 				subLength, _ := strconv.Atoi(subMatch[1])
 				if len(subMatch[2]) >= subLength {
-					data.AcqInfo05 = subMatch[2][:subLength]
+					acqInfo05 = subMatch[2][:subLength]
 				}
+			}
+
+			// 优先使用 05,如果没有则使用 03
+			if acqInfo05 != "" {
+				data.AcqInfo = acqInfo05
+			} else if acqInfo03 != "" {
+				data.AcqInfo = acqInfo03
 			}
 
 		}

@@ -86,6 +86,14 @@ func (g *DeepLinkGenerator) fillDefaults(data *models.EMVCoData, options *models
 		options.ClientID = fmt.Sprintf("%d", time.Now().UnixNano()/1e6)
 	}
 
+	if options.MerchantCategoryCode == "" {
+		options.MerchantCategoryCode = data.MerchantCategoryCode
+	}
+
+	if options.AcqInfo == "" {
+		options.AcqInfo = data.AcqInfo
+	}
+
 	// 注意：ShopID 应该从 QR Code 解析得到，不应该被 options 覆盖
 
 	// 支付类型
@@ -95,6 +103,14 @@ func (g *DeepLinkGenerator) fillDefaults(data *models.EMVCoData, options *models
 		} else {
 			options.PaymentType = models.PaymentTypeStandard // 标准支付
 		}
+	}
+
+	if options.ShopID == "" {
+		options.ShopID = data.ShopID
+	}
+
+	if options.MerchantName == "" {
+		options.MerchantName = data.MerchantName
 	}
 
 	// 业务单号
@@ -115,21 +131,17 @@ func (g *DeepLinkGenerator) buildParameters(data *models.EMVCoData, options *mod
 	values.Add("lucky", fmt.Sprintf("%t", options.EnableLucky))
 	values.Add("bizNo", options.BizNo)
 	values.Add("clientId", options.ClientID)
+	values.Add("merchantName", data.MerchantName)
 
 	// 可选参数 - 只在有值时添加
 	g.addIfNotEmpty(values, "merchantId", options.MerchantID)
 	g.addIfNotEmpty(values, "orderId", options.OrderID)
 	g.addIfNotEmpty(values, "tfrbnkcode", data.BankCode)
-	g.addIfNotEmpty(values, "shopId", data.ShopID)
-	g.addIfNotEmpty(values, "tfrAcctNo", data.ShopID)
-	g.addIfNotEmpty(values, "acqInfo", data.AcqInfo03)
+	g.addIfNotEmpty(values, "shopId", options.ShopID)
+	g.addIfNotEmpty(values, "tfrAcctNo", options.ShopID)
+	g.addIfNotEmpty(values, "acqInfo", options.AcqInfo)
 	g.addIfNotEmpty(values, "merchantCity", data.MerchantCity)
-	g.addIfNotEmpty(values, "merchantCategoryCode", data.MerchantCategoryCode)
-	if options.MerchantName != "" {
-		values.Add("merchantName", options.MerchantName)
-	} else {
-		values.Add("merchantName", data.MerchantName)
-	}
+	g.addIfNotEmpty(values, "merchantCategoryCode", options.MerchantCategoryCode)
 
 	// 回调 URL
 	g.addIfNotEmpty(values, "redirectUrl", options.RedirectURL)
@@ -148,33 +160,26 @@ func (g *DeepLinkGenerator) buildParameters(data *models.EMVCoData, options *mod
 
 // buildParam3 构建 param3 参数
 func (g *DeepLinkGenerator) buildParam3(options *models.DeepLinkOptions) string {
-	if options.CustomParam3 != "" {
-		return options.CustomParam3
-	}
 	return fmt.Sprintf("99960005~ph.ppmi.p2m~~~%s", options.PaymentType)
 }
 
 // buildParam5 构建 param5 参数
 func (g *DeepLinkGenerator) buildParam5(data *models.EMVCoData, options *models.DeepLinkOptions) string {
-	if options.CustomParam5 != "" {
-		return options.CustomParam5
-	}
-
-	// param5 格式：ShopID~AcqInfo~~~另一个值
-	// 根据真实 GCash Deep Link 示例分析
-	if data.ShopID != "" && data.AcqInfo03 != "" {
-		if data.AcqInfo05 != "" {
-			// 如果有两个 AcqInfo，使用格式：ShopID~AcqInfo03~~~AcqInfo05
+	// param5 格式：ShopID~MerchantName~~~AcqInfo
+	// 只要有 ShopID 就生成 param5
+	if options.ShopID != "" {
+		if options.AcqInfo != "" {
+			// 有 AcqInfo，使用格式：ShopID~MerchantName~~~AcqInfo
 			return fmt.Sprintf("%s~%s~~~%s",
-				data.ShopID,
-				data.AcqInfo03,
-				data.AcqInfo05,
+				options.ShopID,
+				options.MerchantName,
+				options.AcqInfo,
 			)
 		} else {
-			// 只有 AcqInfo03，使用格式：ShopID~AcqInfo03~~~
+			// 没有 AcqInfo，使用格式：ShopID~MerchantName~~~
 			return fmt.Sprintf("%s~%s~~~",
-				data.ShopID,
-				data.AcqInfo03,
+				options.ShopID,
+				options.MerchantName,
 			)
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"runtime"
@@ -181,8 +182,15 @@ func handleParse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// URL 解码 QR Code 数据,将可能的 + 转换为空格
+	qrCode, err := url.QueryUnescape(req.QRCode)
+	if err != nil {
+		// 如果解码失败,使用原始数据
+		qrCode = req.QRCode
+	}
+
 	p := parser.NewEMVCoParser()
-	data, err := p.Parse(req.QRCode)
+	data, err := p.Parse(qrCode)
 	if err != nil {
 		respondJSON(w, http.StatusBadRequest, map[string]interface{}{
 			"success": false,
@@ -228,6 +236,13 @@ func handleGenerate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// URL 解码 QR Code 数据,将可能的 + 转换为空格
+	qrCode, err := url.QueryUnescape(req.QRCode)
+	if err != nil {
+		// 如果解码失败,使用原始数据
+		qrCode = req.QRCode
+	}
+
 	options := &models.DeepLinkOptions{
 		OrderID:     req.OrderID,
 		MerchantID:  req.MerchantID,
@@ -240,7 +255,7 @@ func handleGenerate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	g := generator.NewDeepLinkGenerator()
-	result, err := g.GenerateWithValidation(req.QRCode, options)
+	result, err := g.GenerateWithValidation(qrCode, options)
 	if err != nil {
 		respondJSON(w, http.StatusBadRequest, map[string]interface{}{
 			"success": false,
@@ -270,8 +285,15 @@ func handleValidate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// URL 解码 QR Code 数据,将可能的 + 转换为空格
+	qrCode, err := url.QueryUnescape(req.QRCode)
+	if err != nil {
+		// 如果解码失败,使用原始数据
+		qrCode = req.QRCode
+	}
+
 	p := parser.NewEMVCoParser()
-	validation := p.Validate(req.QRCode)
+	validation := p.Validate(qrCode)
 
 	respondJSON(w, http.StatusOK, validation)
 }
