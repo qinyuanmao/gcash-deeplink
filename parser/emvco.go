@@ -81,10 +81,10 @@ func (p *EMVCoParser) extractVariableLengthField(qrData, tag string) string {
 	// 这样可以避免匹配到值内部的数字模式
 	i := 0
 	for i <= len(qrData)-4 {
-		// 读取当前位置的 tag (2字节)
+		// 读取当前位置的 tag (2 字节)
 		currentTag := qrData[i : i+2]
 
-		// 读取长度字段 (2字节)
+		// 读取长度字段 (2 字节)
 		lengthStr := qrData[i+2 : i+4]
 		if !isDigit(lengthStr[0]) || !isDigit(lengthStr[1]) {
 			i++
@@ -103,7 +103,7 @@ func (p *EMVCoParser) extractVariableLengthField(qrData, tag string) string {
 			continue
 		}
 
-		// 如果是我们要找的 tag,返回值
+		// 如果是我们要找的 tag，返回值
 		if currentTag == tag {
 			value := qrData[i+4 : i+4+length]
 			return strings.TrimSpace(value)
@@ -219,18 +219,16 @@ func (p *EMVCoParser) parseAdditionalData(qrData string, data *models.EMVCoData)
 
 				// 根据子标签类型存储数据
 				switch subTag {
-				case "01":
-					data.OrderReference = subValue
 				case "03":
-					data.AcqInfo03 = subValue
+					data.OrderID = subValue
 				case "05":
-					data.AcqInfo05 = subValue
+					data.AcqInfo = subValue
 				}
 
 				j += 4 + subLength
 			}
 
-			return // 找到并处理完 Tag 62,退出
+			return // 找到并处理完 Tag 62，退出
 		}
 
 		// 跳过当前 TLV
@@ -306,6 +304,6 @@ func (p *EMVCoParser) GetSummary(data *models.EMVCoData) string {
 		data.ShopID,
 		data.BankCode,
 		data.MerchantCategoryCode,
-		data.OrderReference,
+		data.OrderID,
 	)
 }

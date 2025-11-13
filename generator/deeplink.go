@@ -133,7 +133,7 @@ func (g *DeepLinkGenerator) buildParameters(data *models.EMVCoData, options *mod
 	g.addIfNotEmpty(values, "tfrbnkcode", data.BankCode)
 	g.addIfNotEmpty(values, "shopId", options.ShopID)
 	g.addIfNotEmpty(values, "tfrAcctNo", options.ShopID)
-	g.addIfNotEmpty(values, "acqInfo", data.AcqInfo05)
+	g.addIfNotEmpty(values, "acqInfo", data.AcqInfo)
 	g.addIfNotEmpty(values, "merchantCity", data.MerchantCity)
 	g.addIfNotEmpty(values, "merchantCategoryCode", options.MerchantCategoryCode)
 
@@ -159,14 +159,14 @@ func (g *DeepLinkGenerator) buildParam3(options *models.DeepLinkOptions) string 
 
 // buildParam5 构建 param5 参数
 func (g *DeepLinkGenerator) buildParam5(data *models.EMVCoData, options *models.DeepLinkOptions) string {
-	// param5 格式：ShopID~AcqInfo03~~~AcqInfo05
+	// param5 格式：ShopID~OrderID~~~AcqInfo
 	// 只要有 ShopID 就生成 param5
 	if options.ShopID != "" {
-		// 有 AcqInfo，使用格式：ShopID~AcqInfo03~~~AcqInfo05
+		// 有 AcqInfo，使用格式：ShopID~OrderID~~~AcqInfo
 		return fmt.Sprintf("%s~%s~~~%s",
 			options.ShopID,
-			data.AcqInfo03,
-			data.AcqInfo05,
+			data.OrderID,
+			data.AcqInfo,
 		)
 	}
 
