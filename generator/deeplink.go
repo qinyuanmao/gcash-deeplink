@@ -83,7 +83,7 @@ func (g *DeepLinkGenerator) fillDefaults(data *models.EMVCoData, options *models
 
 	// 客户端 ID
 	if options.ClientID == "" {
-		options.ClientID = fmt.Sprintf("%d", time.Now().UnixNano()/1e6)
+		options.ClientID = "2023062916065505394208" // 默认的客户端 ID
 	}
 
 	if options.MerchantCategoryCode == "" {
