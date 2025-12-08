@@ -3,6 +3,7 @@ package generator
 import (
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/qinyuanmao/gcash-deeplink/models"
@@ -35,11 +36,11 @@ func (g *DeepLinkGenerator) Generate(data *models.EMVCoData, options *models.Dee
 	// 填充默认值
 	g.fillDefaults(data, options)
 
-	// 构建参数
-	values := g.buildParameters(data, options)
+	// 构建参数 (按固定顺序)
+	queryString := g.buildQueryString(data, options)
 
 	// 生成 Deep Link
-	deepLink := fmt.Sprintf("%s?%s", GCashBaseURL, values.Encode())
+	deepLink := fmt.Sprintf("%s?%s", GCashBaseURL, queryString)
 
 	return &models.DeepLinkResult{
 		Success:     true,
@@ -109,47 +110,95 @@ func (g *DeepLinkGenerator) fillDefaults(data *models.EMVCoData, options *models
 	}
 }
 
-// buildParameters 构建 URL 参数
-func (g *DeepLinkGenerator) buildParameters(data *models.EMVCoData, options *models.DeepLinkOptions) url.Values {
-	values := url.Values{}
+// buildQueryString 按固定顺序构建 URL 参数
+func (g *DeepLinkGenerator) buildQueryString(data *models.EMVCoData, options *models.DeepLinkOptions) string {
+	var params []string
 
-	// 必需参数
-	values.Add("qrCode", options.QRCode)
-	values.Add("orderAmount", options.OrderAmount)
-	values.Add("qrCodeFormat", "EMVCO")
-	values.Add("sub", "p2mpay")
-	values.Add("bizNo", options.BizNo)
-	values.Add("clientId", options.ClientID)
-	values.Add("merchantName", data.MerchantName)
+	// 按照指定顺序添加参数:
+	// qrCode, merchantId, bizNo, orderAmount, merchantName, shopId,
+	// qrCodeFormat, tfrbnkcode, clientId, param3, param5, tfrAcctNo, acqInfo, sub, lucky
 
-	// 可选参数 - 只在有值时添加
-	g.addIfNotEmpty(values, "merchantId", options.MerchantID)
-	g.addIfNotEmpty(values, "orderId", options.OrderID)
-	g.addIfNotEmpty(values, "tfrbnkcode", data.BankCode)
-	g.addIfNotEmpty(values, "shopId", options.ShopID)
-	g.addIfNotEmpty(values, "tfrAcctNo", options.ShopID)
-	g.addIfNotEmpty(values, "acqInfo", data.AcqInfo)
+	// 1. qrCode (必需)
+	params = append(params, "qrCode="+url.QueryEscape(options.QRCode))
 
-	// 以下三个字段仅在 options 中显式设置时才添加
-	if options.EnableLucky != nil {
-		values.Add("lucky", fmt.Sprintf("%t", *options.EnableLucky))
+	// 2. merchantId (可选)
+	if options.MerchantID != "" {
+		params = append(params, "merchantId="+url.QueryEscape(options.MerchantID))
 	}
-	g.addIfNotEmpty(values, "merchantCity", options.MerchantCity)
-	g.addIfNotEmpty(values, "merchantCategoryCode", options.MerchantCategoryCode)
 
-	// 回调 URL
-	g.addIfNotEmpty(values, "redirectUrl", options.RedirectURL)
-	g.addIfNotEmpty(values, "returnUrl", options.RedirectURL)
-	g.addIfNotEmpty(values, "notifyUrl", options.NotifyURL)
-	g.addIfNotEmpty(values, "callbackUrl", options.NotifyURL)
+	// 3. bizNo (必需)
+	params = append(params, "bizNo="+url.QueryEscape(options.BizNo))
 
-	// param3 和 param5
+	// 4. orderAmount (必需)
+	params = append(params, "orderAmount="+url.QueryEscape(options.OrderAmount))
+
+	// 5. merchantName (必需)
+	params = append(params, "merchantName="+url.QueryEscape(data.MerchantName))
+
+	// 6. shopId (可选)
+	if options.ShopID != "" {
+		params = append(params, "shopId="+url.QueryEscape(options.ShopID))
+	}
+
+	// 7. qrCodeFormat (必需)
+	params = append(params, "qrCodeFormat=EMVCO")
+
+	// 8. tfrbnkcode (可选)
+	if data.BankCode != "" {
+		params = append(params, "tfrbnkcode="+url.QueryEscape(data.BankCode))
+	}
+
+	// 9. clientId (必需)
+	params = append(params, "clientId="+url.QueryEscape(options.ClientID))
+
+	// 10. param3 (必需)
 	param3 := g.buildParam3(options)
-	param5 := g.buildParam5(data, options)
-	g.addIfNotEmpty(values, "param3", param3)
-	g.addIfNotEmpty(values, "param5", param5)
+	params = append(params, "param3="+url.QueryEscape(param3))
 
-	return values
+	// 11. param5 (可选)
+	param5 := g.buildParam5(data, options)
+	if param5 != "" {
+		params = append(params, "param5="+url.QueryEscape(param5))
+	}
+
+	// 12. tfrAcctNo (可选)
+	if options.ShopID != "" {
+		params = append(params, "tfrAcctNo="+url.QueryEscape(options.ShopID))
+	}
+
+	// 13. acqInfo (可选)
+	if data.AcqInfo != "" {
+		params = append(params, "acqInfo="+url.QueryEscape(data.AcqInfo))
+	}
+
+	// 14. sub (必需)
+	params = append(params, "sub=p2mpay")
+
+	// 15. lucky (可选,仅在显式设置时添加)
+	if options.EnableLucky != nil {
+		params = append(params, fmt.Sprintf("lucky=%t", *options.EnableLucky))
+	}
+
+	// 其他可选参数 (不在指定顺序中,追加到最后)
+	if options.MerchantCity != "" {
+		params = append(params, "merchantCity="+url.QueryEscape(options.MerchantCity))
+	}
+	if options.MerchantCategoryCode != "" {
+		params = append(params, "merchantCategoryCode="+url.QueryEscape(options.MerchantCategoryCode))
+	}
+	if options.RedirectURL != "" {
+		params = append(params, "redirectUrl="+url.QueryEscape(options.RedirectURL))
+		params = append(params, "returnUrl="+url.QueryEscape(options.RedirectURL))
+	}
+	if options.NotifyURL != "" {
+		params = append(params, "notifyUrl="+url.QueryEscape(options.NotifyURL))
+		params = append(params, "callbackUrl="+url.QueryEscape(options.NotifyURL))
+	}
+	if options.OrderID != "" {
+		params = append(params, "orderId="+url.QueryEscape(options.OrderID))
+	}
+
+	return strings.Join(params, "&")
 }
 
 // buildParam3 构建 param3 参数
@@ -171,13 +220,6 @@ func (g *DeepLinkGenerator) buildParam5(data *models.EMVCoData, options *models.
 	}
 
 	return ""
-}
-
-// addIfNotEmpty 只在值非空时添加参数
-func (g *DeepLinkGenerator) addIfNotEmpty(values url.Values, key, value string) {
-	if value != "" && value != "null" {
-		values.Add(key, value)
-	}
 }
 
 // errorResult 创建错误结果
