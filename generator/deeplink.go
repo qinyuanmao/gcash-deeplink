@@ -86,10 +86,6 @@ func (g *DeepLinkGenerator) fillDefaults(data *models.EMVCoData, options *models
 		options.ClientID = "2023062916065505394208" // 默认的客户端 ID
 	}
 
-	if options.MerchantCategoryCode == "" {
-		options.MerchantCategoryCode = data.MerchantCategoryCode
-	}
-
 	// 支付类型
 	if options.PaymentType == "" {
 		if options.OrderID != "" {
@@ -122,7 +118,6 @@ func (g *DeepLinkGenerator) buildParameters(data *models.EMVCoData, options *mod
 	values.Add("orderAmount", options.OrderAmount)
 	values.Add("qrCodeFormat", "EMVCO")
 	values.Add("sub", "p2mpay")
-	values.Add("lucky", fmt.Sprintf("%t", options.EnableLucky))
 	values.Add("bizNo", options.BizNo)
 	values.Add("clientId", options.ClientID)
 	values.Add("merchantName", data.MerchantName)
@@ -134,7 +129,12 @@ func (g *DeepLinkGenerator) buildParameters(data *models.EMVCoData, options *mod
 	g.addIfNotEmpty(values, "shopId", options.ShopID)
 	g.addIfNotEmpty(values, "tfrAcctNo", options.ShopID)
 	g.addIfNotEmpty(values, "acqInfo", data.AcqInfo)
-	g.addIfNotEmpty(values, "merchantCity", data.MerchantCity)
+
+	// 以下三个字段仅在 options 中显式设置时才添加
+	if options.EnableLucky != nil {
+		values.Add("lucky", fmt.Sprintf("%t", *options.EnableLucky))
+	}
+	g.addIfNotEmpty(values, "merchantCity", options.MerchantCity)
 	g.addIfNotEmpty(values, "merchantCategoryCode", options.MerchantCategoryCode)
 
 	// 回调 URL
