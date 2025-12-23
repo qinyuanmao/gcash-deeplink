@@ -120,7 +120,7 @@ func (g *DeepLinkGenerator) buildParameters(data *models.EMVCoData, options *mod
 	values.Add("qrCodeFormat", "EMVCO")
 	values.Add("sub", "p2mpay")
 	values.Add("clientId", options.ClientID)
-	values.Add("merchantName", data.MerchantName)
+	values.Add("merchantName", options.MerchantName)
 
 	// 可选参数 - 只在有值时添加
 	g.addIfNotEmpty(values, "merchantId", options.MerchantID)

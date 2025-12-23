@@ -307,6 +307,11 @@
     </div>
 
     <div class="form-group">
+      <label for="merchantName">商户名称 (可选，留空则使用 QR Code 中的名称)</label>
+      <input type="text" id="merchantName" placeholder="例如: MY SHOP NAME">
+    </div>
+
+    <div class="form-group">
       <label for="paymentType">支付类型</label>
       <select id="paymentType">
         <option value="">自动判断</option>
@@ -370,6 +375,7 @@
         gcashLink: params.get('gcash') || params.get('gcashlink') || params.get('link'),
         orderId: params.get('orderId') || params.get('orderid'),
         merchantId: params.get('merchantId') || params.get('merchantid'),
+        merchantName: params.get('merchantName') || params.get('merchantname'),
         redirectUrl: params.get('redirectUrl') || params.get('redirect'),
         notifyUrl: params.get('notifyUrl') || params.get('notify')
       };
@@ -421,6 +427,9 @@
       if (params.merchantId) {
         document.getElementById('merchantId').value = params.merchantId;
       }
+      if (params.merchantName) {
+        document.getElementById('merchantName').value = decodeURIComponent(params.merchantName);
+      }
       if (params.redirectUrl) {
         document.getElementById('redirectUrl').value = decodeURIComponent(params.redirectUrl);
       }
@@ -440,6 +449,7 @@
       const qrCode = document.getElementById('qrCode').value.trim();
       const orderId = document.getElementById('orderId').value.trim();
       const merchantId = document.getElementById('merchantId').value.trim();
+      const merchantName = document.getElementById('merchantName').value.trim();
       const redirectUrl = document.getElementById('redirectUrl').value.trim();
       const notifyUrl = document.getElementById('notifyUrl').value.trim();
       const paymentType = document.getElementById('paymentType').value;
@@ -467,6 +477,7 @@
             qrCode,
             orderId: orderId || undefined,
             merchantId: merchantId || undefined,
+            merchantName: merchantName || undefined,
             redirectUrl: redirectUrl || undefined,
             notifyUrl: notifyUrl || undefined,
             paymentType: paymentType || undefined,
@@ -585,6 +596,7 @@
       const deepLink = document.getElementById('deepLinkEdit').value.trim();
       const orderId = document.getElementById('orderId').value.trim();
       const merchantId = document.getElementById('merchantId').value.trim();
+      const merchantName = document.getElementById('merchantName').value.trim();
       const redirectUrl = document.getElementById('redirectUrl').value.trim();
       const notifyUrl = document.getElementById('notifyUrl').value.trim();
 
@@ -602,6 +614,7 @@
       // 添加其他参数
       if (orderId) params.set('orderId', orderId);
       if (merchantId) params.set('merchantId', merchantId);
+      if (merchantName) params.set('merchantName', merchantName);
       if (redirectUrl) params.set('redirectUrl', redirectUrl);
       if (notifyUrl) params.set('notifyUrl', notifyUrl);
 
@@ -640,7 +653,7 @@
     // 监听输入框变化，自动更新 URL 参数
     let updateTimeout;
     function setupInputListeners() {
-      const inputs = ['qrCode', 'deepLinkEdit', 'orderId', 'merchantId', 'redirectUrl', 'notifyUrl'];
+      const inputs = ['qrCode', 'deepLinkEdit', 'orderId', 'merchantId', 'merchantName', 'redirectUrl', 'notifyUrl'];
       inputs.forEach(id => {
         const element = document.getElementById(id);
         element.addEventListener('input', () => {

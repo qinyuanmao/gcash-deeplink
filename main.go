@@ -212,12 +212,13 @@ func handleGenerate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		QRCode      string `json:"qrCode"`
-		OrderID     string `json:"orderId,omitempty"`
-		MerchantID  string `json:"merchantId,omitempty"`
-		RedirectURL string `json:"redirectUrl,omitempty"`
-		NotifyURL   string `json:"notifyUrl,omitempty"`
-		PaymentType string `json:"paymentType,omitempty"`
+		QRCode       string `json:"qrCode"`
+		OrderID      string `json:"orderId,omitempty"`
+		MerchantID   string `json:"merchantId,omitempty"`
+		MerchantName string `json:"merchantName,omitempty"`
+		RedirectURL  string `json:"redirectUrl,omitempty"`
+		NotifyURL    string `json:"notifyUrl,omitempty"`
+		PaymentType  string `json:"paymentType,omitempty"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -244,10 +245,11 @@ func handleGenerate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	options := &models.DeepLinkOptions{
-		OrderID:     req.OrderID,
-		MerchantID:  req.MerchantID,
-		RedirectURL: req.RedirectURL,
-		NotifyURL:   req.NotifyURL,
+		OrderID:      req.OrderID,
+		MerchantID:   req.MerchantID,
+		MerchantName: req.MerchantName,
+		RedirectURL:  req.RedirectURL,
+		NotifyURL:    req.NotifyURL,
 	}
 
 	if req.PaymentType != "" {
