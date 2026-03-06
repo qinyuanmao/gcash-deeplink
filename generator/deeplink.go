@@ -104,18 +104,15 @@ func (g *DeepLinkGenerator) fillDefaults(data *models.EMVCoData, options *models
 		options.ShopID = data.ShopID
 	}
 
-	// 如果提供了 KnownUID，排除 UID 选择正确的 Coins Reference Number
-	// acqInfo = Coins Reference Number (非 UID 值)
-	// shopId/tfrAcctNo = UID (固定商户标识)
+	// 如果提供了 KnownUID，排除 UID 选择正确的 Coins Reference Number 作为 acqInfo
+	// 仅影响 acqInfo，不修改 shopId/tfrAcctNo（保持 Tag 28-03 原始值）
 	if options.KnownUID != "" && data.ShopID != "" && data.ReferenceLabel != "" {
 		if data.ShopID == options.KnownUID {
-			// 新格式: 28-03=UID, 62-05=RefNo
+			// 新格式: 28-03=UID, 62-05=RefNo → acqInfo 取 62-05
 			data.AcqInfo = data.ReferenceLabel
-			// shopId 已经是 UID (28-03)，无需修改
 		} else if data.ReferenceLabel == options.KnownUID {
-			// 旧格式: 28-03=RefNo, 62-05=UID
+			// 旧格式: 28-03=RefNo, 62-05=UID → acqInfo 取 28-03
 			data.AcqInfo = data.ShopID
-			options.ShopID = options.KnownUID // shopId 改为 UID
 		}
 	}
 

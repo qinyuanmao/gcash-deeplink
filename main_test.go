@@ -286,13 +286,9 @@ func TestKnownUIDOldFormat(t *testing.T) {
 	if params.Get("acqInfo") != "2163953825260794775" {
 		t.Errorf("旧格式 acqInfo 错误: got %q, want %q", params.Get("acqInfo"), "2163953825260794775")
 	}
-	// shopId = UID (固定商户标识)
-	if params.Get("shopId") != knownUID {
-		t.Errorf("旧格式 shopId 错误: got %q, want %q", params.Get("shopId"), knownUID)
-	}
-	// tfrAcctNo = UID
-	if params.Get("tfrAcctNo") != knownUID {
-		t.Errorf("旧格式 tfrAcctNo 错误: got %q, want %q", params.Get("tfrAcctNo"), knownUID)
+	// shopId/tfrAcctNo 保持 Tag 28-03 原始值，不受 KnownUID 影响
+	if params.Get("shopId") != "2163953825260794775" {
+		t.Errorf("旧格式 shopId 错误: got %q, want %q", params.Get("shopId"), "2163953825260794775")
 	}
 }
 
@@ -324,13 +320,9 @@ func TestKnownUIDNewFormat(t *testing.T) {
 	if params.Get("acqInfo") != "2163386327968797571" {
 		t.Errorf("新格式 acqInfo 错误: got %q, want %q", params.Get("acqInfo"), "2163386327968797571")
 	}
-	// shopId = UID (固定商户标识)
+	// shopId/tfrAcctNo 保持 Tag 28-03 原始值 (新格式下 28-03=UID)
 	if params.Get("shopId") != knownUID {
 		t.Errorf("新格式 shopId 错误: got %q, want %q", params.Get("shopId"), knownUID)
-	}
-	// tfrAcctNo = UID
-	if params.Get("tfrAcctNo") != knownUID {
-		t.Errorf("新格式 tfrAcctNo 错误: got %q, want %q", params.Get("tfrAcctNo"), knownUID)
 	}
 }
 
