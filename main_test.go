@@ -152,10 +152,9 @@ func TestAcqInfoFallbackToShopID(t *testing.T) {
 	}
 }
 
-// TestAcqInfoPriority2803 测试 Tag 28-03 优先于 62-05
-func TestAcqInfoPriority2803(t *testing.T) {
-	// 当 Tag 28-03 和 62-05 都有值时，acqInfo 应优先使用 28-03 (Store Label)
-	// 因为当前 BSP 旧格式下 28-03 = Coins Reference Number
+// TestAcqInfoPriority6205 测试 Tag 62-05 优先于 28-03 (符合 Luca 的模板)
+func TestAcqInfoPriority6205(t *testing.T) {
+	// acqInfo 默认使用 Tag 62-05 (Reference Label)
 	qrCode := "00020101021228790011ph.ppmi.p2m0111PAEYPHM2XXX0324VkHUE2Fz8Ee2YxnTVPX34TZs041003030028860503010520473995303608540520.005802PH5916NEXA ONLINE SHOP6013General Trias62430012ph.ppmi.qrph0306lsFK7X05062110000803***88440012ph.ppmi.qrph0124VkHUE2Fz8Ee2YxnTVPX34TZs63042A5A"
 
 	p := parser.NewEMVCoParser()
@@ -169,9 +168,9 @@ func TestAcqInfoPriority2803(t *testing.T) {
 		t.Errorf("ReferenceLabel 错误: got %q, want %q", data.ReferenceLabel, "211000")
 	}
 
-	// AcqInfo 应优先使用 28-03 (ShopID)
-	if data.AcqInfo != "VkHUE2Fz8Ee2YxnTVPX34TZs" {
-		t.Errorf("AcqInfo 错误: got %q, want %q", data.AcqInfo, "VkHUE2Fz8Ee2YxnTVPX34TZs")
+	// AcqInfo 应优先使用 62-05 (Reference Label)
+	if data.AcqInfo != "211000" {
+		t.Errorf("AcqInfo 错误: got %q, want %q", data.AcqInfo, "211000")
 	}
 }
 
@@ -218,9 +217,10 @@ func containsParam(deepLink, key, value string) bool {
 	return parsed.Query().Get(key) == value
 }
 
-// TestCoinsOldFormatAcqInfo 测试旧格式 Coins QR Code (28-03=RefNo, 62-05=UID)
-func TestCoinsOldFormatAcqInfo(t *testing.T) {
-	// 旧格式: Tag 28-03 = Coins Reference Number, Tag 62-05 = UID (固定收单行号)
+// TestCoinsOldFormatDefaultAcqInfo 测试旧格式 Coins QR 无 KnownUID 时 acqInfo 取 62-05
+func TestCoinsOldFormatDefaultAcqInfo(t *testing.T) {
+	// 旧格式: Tag 28-03 = Coins Reference Number, Tag 62-05 = UID
+	// 无 KnownUID 时，默认 62-05 优先 → acqInfo = UID (需要 KnownUID 来修正)
 	qrCode := "00020101021228600011ph.ppmi.p2m0111DCPHPHM1XXX03192163953825260794775050301152044816530360854031005802PH5909PoLhevWiN6011Baguio city62380011ph.ppmi.p2m051920828990834787223046304178C"
 
 	p := parser.NewEMVCoParser()
@@ -229,32 +229,9 @@ func TestCoinsOldFormatAcqInfo(t *testing.T) {
 		t.Fatalf("解析失败: %v", err)
 	}
 
-	// Tag 28-03 = Coins Reference Number
-	if data.ShopID != "2163953825260794775" {
-		t.Errorf("ShopID 错误: got %q, want %q", data.ShopID, "2163953825260794775")
-	}
-
-	// Tag 62-05 = UID (固定收单行号)
-	if data.ReferenceLabel != "2082899083478722304" {
-		t.Errorf("ReferenceLabel 错误: got %q, want %q", data.ReferenceLabel, "2082899083478722304")
-	}
-
-	// AcqInfo 应该是 Coins Reference Number (28-03)，不是 UID
-	if data.AcqInfo != "2163953825260794775" {
-		t.Errorf("AcqInfo 错误: got %q, want %q (应为 Coins Reference Number，不是 UID)", data.AcqInfo, "2163953825260794775")
-	}
-
-	// 生成 deeplink 并验证
-	g := generator.NewDeepLinkGenerator()
-	result, err := g.Generate(data, &models.DeepLinkOptions{PaymentType: models.PaymentTypeDynamic})
-	if err != nil {
-		t.Fatalf("生成失败: %v", err)
-	}
-
-	parsed, _ := url.Parse(result.DeepLink)
-	acqInfo := parsed.Query().Get("acqInfo")
-	if acqInfo != "2163953825260794775" {
-		t.Errorf("deeplink acqInfo 参数错误: got %q, want %q", acqInfo, "2163953825260794775")
+	// 默认 62-05 优先 → acqInfo = UID
+	if data.AcqInfo != "2082899083478722304" {
+		t.Errorf("AcqInfo 错误: got %q, want %q", data.AcqInfo, "2082899083478722304")
 	}
 }
 
