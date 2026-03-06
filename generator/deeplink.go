@@ -83,7 +83,12 @@ func (g *DeepLinkGenerator) fillDefaults(data *models.EMVCoData, options *models
 
 	// 客户端 ID
 	if options.ClientID == "" {
-		options.ClientID = "2023062916065505394208" // 默认的客户端 ID
+		options.ClientID = "2023062916065505394208"
+	}
+
+	// 商户 ID
+	if options.MerchantID == "" {
+		options.MerchantID = "217020000119199251998"
 	}
 
 	// 支付类型
@@ -165,14 +170,13 @@ func (g *DeepLinkGenerator) buildParam3(options *models.DeepLinkOptions) string 
 }
 
 // buildParam5 构建 param5 参数
+// QRPH 格式：ShopID~OrderID~TerminalLabel~~AcqInfo
 func (g *DeepLinkGenerator) buildParam5(data *models.EMVCoData, options *models.DeepLinkOptions) string {
-	// param5 格式：ShopID~OrderID~~~AcqInfo
-	// 只要有 ShopID 就生成 param5
 	if options.ShopID != "" {
-		// 有 AcqInfo，使用格式：ShopID~OrderID~~~AcqInfo
-		return fmt.Sprintf("%s~%s~~~%s",
+		return fmt.Sprintf("%s~%s~%s~~%s",
 			options.ShopID,
 			data.OrderID,
+			data.TerminalLabel,
 			data.AcqInfo,
 		)
 	}

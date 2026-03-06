@@ -72,6 +72,9 @@ func (p *EMVCoParser) Parse(qrData string) (*models.EMVCoData, error) {
 		data.CRC = match[1]
 	}
 
+	// 根据 QRPH 规范解析 AcqInfo
+	p.resolveAcqInfo(data)
+
 	return data, nil
 }
 
@@ -163,6 +166,17 @@ func (p *EMVCoParser) parseMerchantAccountInfo(qrData string, data *models.EMVCo
 	}
 }
 
+// resolveAcqInfo 根据 QRPH 规范确定 AcqInfo 值
+// 优先级: Tag 62-05 (Reference Label) > Tag 28-03 (Store Label)
+func (p *EMVCoParser) resolveAcqInfo(data *models.EMVCoData) {
+	if data.ReferenceLabel != "" {
+		data.AcqInfo = data.ReferenceLabel
+	} else if data.ShopID != "" {
+		// Tag 62-05 为空时，回退使用 Tag 28-03 (Store Label)
+		data.AcqInfo = data.ShopID
+	}
+}
+
 // isDigit 检查字符是否为数字
 func isDigit(c byte) bool {
 	return c >= '0' && c <= '9'
@@ -217,12 +231,14 @@ func (p *EMVCoParser) parseAdditionalData(qrData string, data *models.EMVCoData)
 
 				subValue := additionalData[j+4 : j+4+subLength]
 
-				// 根据子标签类型存储数据
+				// 根据子标签类型存储数据 (QRPH 规范)
 				switch subTag {
 				case "03":
-					data.OrderID = subValue
+					data.OrderID = subValue // Tag 62-03: Store Label / Bill Number
 				case "05":
-					data.AcqInfo = subValue
+					data.ReferenceLabel = subValue // Tag 62-05: Reference Label
+				case "07":
+					data.TerminalLabel = subValue // Tag 62-07: Terminal Label
 				}
 
 				j += 4 + subLength
