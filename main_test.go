@@ -280,10 +280,19 @@ func TestKnownUIDOldFormat(t *testing.T) {
 	}
 
 	parsed, _ := url.Parse(result.DeepLink)
-	acqInfo := parsed.Query().Get("acqInfo")
-	// 62-05 = UID，被排除后应使用 28-03 = RefNo
-	if acqInfo != "2163953825260794775" {
-		t.Errorf("旧格式 acqInfo 错误: got %q, want %q", acqInfo, "2163953825260794775")
+	params := parsed.Query()
+
+	// acqInfo = Coins Reference Number (非 UID)
+	if params.Get("acqInfo") != "2163953825260794775" {
+		t.Errorf("旧格式 acqInfo 错误: got %q, want %q", params.Get("acqInfo"), "2163953825260794775")
+	}
+	// shopId = UID (固定商户标识)
+	if params.Get("shopId") != knownUID {
+		t.Errorf("旧格式 shopId 错误: got %q, want %q", params.Get("shopId"), knownUID)
+	}
+	// tfrAcctNo = UID
+	if params.Get("tfrAcctNo") != knownUID {
+		t.Errorf("旧格式 tfrAcctNo 错误: got %q, want %q", params.Get("tfrAcctNo"), knownUID)
 	}
 }
 
@@ -309,10 +318,19 @@ func TestKnownUIDNewFormat(t *testing.T) {
 	}
 
 	parsed, _ := url.Parse(result.DeepLink)
-	acqInfo := parsed.Query().Get("acqInfo")
-	// 28-03 = UID，被排除后应使用 62-05 = RefNo
-	if acqInfo != "2163386327968797571" {
-		t.Errorf("新格式 acqInfo 错误: got %q, want %q", acqInfo, "2163386327968797571")
+	params := parsed.Query()
+
+	// acqInfo = Coins Reference Number (非 UID)
+	if params.Get("acqInfo") != "2163386327968797571" {
+		t.Errorf("新格式 acqInfo 错误: got %q, want %q", params.Get("acqInfo"), "2163386327968797571")
+	}
+	// shopId = UID (固定商户标识)
+	if params.Get("shopId") != knownUID {
+		t.Errorf("新格式 shopId 错误: got %q, want %q", params.Get("shopId"), knownUID)
+	}
+	// tfrAcctNo = UID
+	if params.Get("tfrAcctNo") != knownUID {
+		t.Errorf("新格式 tfrAcctNo 错误: got %q, want %q", params.Get("tfrAcctNo"), knownUID)
 	}
 }
 
