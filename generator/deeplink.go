@@ -114,6 +114,22 @@ func (g *DeepLinkGenerator) fillDefaults(data *models.EMVCoData, options *models
 		options.MerchantName = data.MerchantName
 	}
 
+	// 商户城市 - 从 QR Code (Tag 60) 自动填充
+	if options.MerchantCity == "" {
+		options.MerchantCity = data.MerchantCity
+	}
+
+	// 商户分类码 - 从 QR Code (Tag 52) 自动填充
+	if options.MerchantCategoryCode == "" {
+		options.MerchantCategoryCode = data.MerchantCategoryCode
+	}
+
+	// lucky 默认 false (与 Luca 保持一致)
+	if options.EnableLucky == nil {
+		f := false
+		options.EnableLucky = &f
+	}
+
 	// 业务单号
 	if options.BizNo == "" {
 		options.BizNo = "null"
