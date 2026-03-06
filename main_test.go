@@ -235,10 +235,12 @@ func TestCoinsOldFormatDefaultAcqInfo(t *testing.T) {
 	}
 }
 
-// TestKnownUIDOldFormat 测试 KnownUID 排除旧格式 (28-03=RefNo, 62-05=UID)
-func TestKnownUIDOldFormat(t *testing.T) {
-	// 旧格式: Tag 28-03 = Coins Reference Number, Tag 62-05 = UID
-	qrCode := "00020101021228600011ph.ppmi.p2m0111DCPHPHM1XXX03192163953825260794775050301152044816530360854031005802PH5909PoLhevWiN6011Baguio city62380011ph.ppmi.p2m051920828990834787223046304178C"
+// TestKnownUIDAsAcqInfo 测试 KnownUID 直接作为 acqInfo (商户号)
+func TestKnownUIDAsAcqInfo(t *testing.T) {
+	// KnownUID = 商户号，直接作为 acqInfo
+	// shopId/tfrAcctNo = Tag 28-03 (订单号)
+	// param5 = 订单号~GCash名称~~商户号
+	qrCode := "00020101021228600011ph.ppmi.p2m0111DCPHPHM1XXX03192165045737094936496050301152044816530360854031555802PH5909BuzhuYazi6011Baguio city62380011ph.ppmi.p2m051920828990834787223046304A0F1"
 	knownUID := "2082899083478722304"
 
 	p := parser.NewEMVCoParser()
@@ -259,21 +261,29 @@ func TestKnownUIDOldFormat(t *testing.T) {
 	parsed, _ := url.Parse(result.DeepLink)
 	params := parsed.Query()
 
-	// acqInfo = Coins Reference Number (非 UID)
-	if params.Get("acqInfo") != "2163953825260794775" {
-		t.Errorf("旧格式 acqInfo 错误: got %q, want %q", params.Get("acqInfo"), "2163953825260794775")
+	// acqInfo = KnownUID (商户号)
+	if params.Get("acqInfo") != knownUID {
+		t.Errorf("acqInfo 错误: got %q, want %q", params.Get("acqInfo"), knownUID)
 	}
-	// shopId/tfrAcctNo 保持 Tag 28-03 原始值，不受 KnownUID 影响
-	if params.Get("shopId") != "2163953825260794775" {
-		t.Errorf("旧格式 shopId 错误: got %q, want %q", params.Get("shopId"), "2163953825260794775")
+	// shopId = Tag 28-03 (订单号)
+	if params.Get("shopId") != "2165045737094936496" {
+		t.Errorf("shopId 错误: got %q, want %q", params.Get("shopId"), "2165045737094936496")
+	}
+	// tfrAcctNo = Tag 28-03 (订单号)
+	if params.Get("tfrAcctNo") != "2165045737094936496" {
+		t.Errorf("tfrAcctNo 错误: got %q, want %q", params.Get("tfrAcctNo"), "2165045737094936496")
+	}
+	// param5 = 订单号~GCash名称~~商户号 (无 Tag 62-03 时用 merchantName)
+	expectedParam5 := "2165045737094936496~BuzhuYazi~~2082899083478722304"
+	if params.Get("param5") != expectedParam5 {
+		t.Errorf("param5 错误: got %q, want %q", params.Get("param5"), expectedParam5)
 	}
 }
 
-// TestKnownUIDNewFormat 测试 KnownUID 排除新格式 (28-03=UID, 62-05=RefNo)
-func TestKnownUIDNewFormat(t *testing.T) {
-	// 新格式: Tag 28-03 = UID, Tag 62-05 = Coins Reference Number
-	qrCode := "00020101021228600011ph.ppmi.p2m0111DCPHPHM1XXX03192082899083478722304050301152044816530360854031505802PH5909PoLhevWiN6011Baguio city62380011ph.ppmi.p2m051921633863279687975716304565C"
-	knownUID := "2082899083478722304"
+// TestStandardMerchantNoKnownUID 测试标准商户 (PAEYPHM2XXX) 无 KnownUID
+func TestStandardMerchantNoKnownUID(t *testing.T) {
+	// 标准商户: shopId=28-03, acqInfo=62-05, param5=shopId~orderID(62-03)~~~acqInfo
+	qrCode := "00020101021228790011ph.ppmi.p2m0111PAEYPHM2XXX0324cPkF7TJFkyii3Ri9nUJ6qmGQ0410030300288605030105204504653036085406200.005802PH5909BuzhuYazi6011Taguig City62430012ph.ppmi.qrph0306jqdpjj05062110000803***88440012ph.ppmi.qrph0124cPkF7TJFkyii3Ri9nUJ6qmGQ63044FB3"
 
 	p := parser.NewEMVCoParser()
 	data, err := p.Parse(qrCode)
@@ -282,10 +292,7 @@ func TestKnownUIDNewFormat(t *testing.T) {
 	}
 
 	g := generator.NewDeepLinkGenerator()
-	result, err := g.Generate(data, &models.DeepLinkOptions{
-		PaymentType: models.PaymentTypeDynamic,
-		KnownUID:    knownUID,
-	})
+	result, err := g.Generate(data, &models.DeepLinkOptions{PaymentType: models.PaymentTypeDynamic})
 	if err != nil {
 		t.Fatalf("生成失败: %v", err)
 	}
@@ -293,13 +300,16 @@ func TestKnownUIDNewFormat(t *testing.T) {
 	parsed, _ := url.Parse(result.DeepLink)
 	params := parsed.Query()
 
-	// acqInfo = Coins Reference Number (非 UID)
-	if params.Get("acqInfo") != "2163386327968797571" {
-		t.Errorf("新格式 acqInfo 错误: got %q, want %q", params.Get("acqInfo"), "2163386327968797571")
+	if params.Get("shopId") != "cPkF7TJFkyii3Ri9nUJ6qmGQ" {
+		t.Errorf("shopId 错误: got %q", params.Get("shopId"))
 	}
-	// shopId/tfrAcctNo 保持 Tag 28-03 原始值 (新格式下 28-03=UID)
-	if params.Get("shopId") != knownUID {
-		t.Errorf("新格式 shopId 错误: got %q, want %q", params.Get("shopId"), knownUID)
+	if params.Get("acqInfo") != "211000" {
+		t.Errorf("acqInfo 错误: got %q, want %q", params.Get("acqInfo"), "211000")
+	}
+	// param5: 有 orderID(62-03) 时用 orderID~terminalLabel 格式
+	expectedParam5 := "cPkF7TJFkyii3Ri9nUJ6qmGQ~jqdpjj~~~211000"
+	if params.Get("param5") != expectedParam5 {
+		t.Errorf("param5 错误: got %q, want %q", params.Get("param5"), expectedParam5)
 	}
 }
 

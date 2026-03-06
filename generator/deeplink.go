@@ -104,16 +104,10 @@ func (g *DeepLinkGenerator) fillDefaults(data *models.EMVCoData, options *models
 		options.ShopID = data.ShopID
 	}
 
-	// 如果提供了 KnownUID，排除 UID 选择正确的 Coins Reference Number 作为 acqInfo
-	// 仅影响 acqInfo，不修改 shopId/tfrAcctNo（保持 Tag 28-03 原始值）
-	if options.KnownUID != "" && data.ShopID != "" && data.ReferenceLabel != "" {
-		if data.ShopID == options.KnownUID {
-			// 新格式: 28-03=UID, 62-05=RefNo → acqInfo 取 62-05
-			data.AcqInfo = data.ReferenceLabel
-		} else if data.ReferenceLabel == options.KnownUID {
-			// 旧格式: 28-03=RefNo, 62-05=UID → acqInfo 取 28-03
-			data.AcqInfo = data.ShopID
-		}
+	// KnownUID = 商户号，直接作为 acqInfo
+	// shopId/tfrAcctNo 保持 Tag 28-03（订单号）
+	if options.KnownUID != "" {
+		data.AcqInfo = options.KnownUID
 	}
 
 	if options.MerchantName == "" {
@@ -182,18 +176,24 @@ func (g *DeepLinkGenerator) buildParam3(options *models.DeepLinkOptions) string 
 }
 
 // buildParam5 构建 param5 参数
-// QRPH 格式：ShopID~OrderID~TerminalLabel~~AcqInfo
+// 格式: ShopID~{middle}~~AcqInfo
+//   有 OrderID(62-03) 时: middle = OrderID~TerminalLabel
+//   无 OrderID 时:        middle = MerchantName
 func (g *DeepLinkGenerator) buildParam5(data *models.EMVCoData, options *models.DeepLinkOptions) string {
-	if options.ShopID != "" {
-		return fmt.Sprintf("%s~%s~%s~~%s",
-			options.ShopID,
-			data.OrderID,
-			data.TerminalLabel,
-			data.AcqInfo,
-		)
+	if options.ShopID == "" {
+		return ""
 	}
 
-	return ""
+	middle := options.MerchantName
+	if data.OrderID != "" {
+		middle = fmt.Sprintf("%s~%s", data.OrderID, data.TerminalLabel)
+	}
+
+	return fmt.Sprintf("%s~%s~~%s",
+		options.ShopID,
+		middle,
+		data.AcqInfo,
+	)
 }
 
 // errorResult 创建错误结果
