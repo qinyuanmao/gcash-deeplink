@@ -104,6 +104,15 @@ func (g *DeepLinkGenerator) fillDefaults(data *models.EMVCoData, options *models
 		options.ShopID = data.ShopID
 	}
 
+	// 如果提供了 KnownUID，排除 UID 选择正确的 Coins Reference Number
+	if options.KnownUID != "" && data.ShopID != "" && data.ReferenceLabel != "" {
+		if data.ShopID == options.KnownUID {
+			data.AcqInfo = data.ReferenceLabel
+		} else if data.ReferenceLabel == options.KnownUID {
+			data.AcqInfo = data.ShopID
+		}
+	}
+
 	if options.MerchantName == "" {
 		options.MerchantName = data.MerchantName
 	}

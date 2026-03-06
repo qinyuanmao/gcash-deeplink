@@ -166,14 +166,14 @@ func (p *EMVCoParser) parseMerchantAccountInfo(qrData string, data *models.EMVCo
 	}
 }
 
-// resolveAcqInfo 根据 QRPH 规范确定 AcqInfo 值
-// 优先级: Tag 62-05 (Reference Label) > Tag 28-03 (Store Label)
+// resolveAcqInfo 确定 AcqInfo 值
+// 当前旧格式: Tag 28-03 = Coins Reference Number, Tag 62-05 = UID
+// acqInfo 应为 Coins Reference Number (Tag 28-03)
 func (p *EMVCoParser) resolveAcqInfo(data *models.EMVCoData) {
-	if data.ReferenceLabel != "" {
-		data.AcqInfo = data.ReferenceLabel
-	} else if data.ShopID != "" {
-		// Tag 62-05 为空时，回退使用 Tag 28-03 (Store Label)
+	if data.ShopID != "" {
 		data.AcqInfo = data.ShopID
+	} else if data.ReferenceLabel != "" {
+		data.AcqInfo = data.ReferenceLabel
 	}
 }
 

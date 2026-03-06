@@ -63,6 +63,7 @@ type DeepLinkOptions struct {
 	// 高级选项
 	EnableLucky *bool  // 是否启用抽奖 (可选,不设置则不添加到 deeplink)
 	BizNo       string // 业务单号
+	KnownUID    string // 已知的固定 UID (Coins 钱包 ID)，用于自动排除并选择正确的 Coins Reference Number
 }
 
 // DeepLinkResult Deep Link 生成结果
