@@ -100,14 +100,23 @@ func (g *DeepLinkGenerator) fillDefaults(data *models.EMVCoData, options *models
 		}
 	}
 
-	if options.ShopID == "" {
-		options.ShopID = data.ShopID
-	}
-
 	// KnownUID = 商户号，直接作为 acqInfo
-	// shopId/tfrAcctNo 保持 Tag 28-03（订单号）
 	if options.KnownUID != "" {
 		data.AcqInfo = options.KnownUID
+	}
+
+	// shopId = 订单号（动态值）
+	// 自动检测 QR 格式：
+	//   旧格式: Tag 28-03=订单号(动态), Tag 62-05=UID(固定) → shopId=28-03
+	//   新格式: Tag 28-03=UID(固定),   Tag 62-05=订单号(动态) → shopId=62-05
+	if options.ShopID == "" {
+		if options.KnownUID != "" && data.ShopID == options.KnownUID && data.ReferenceLabel != "" {
+			// 新格式: Tag 28-03 是 KnownUID，订单号在 Tag 62-05
+			options.ShopID = data.ReferenceLabel
+		} else {
+			// 旧格式/默认: Tag 28-03 是订单号
+			options.ShopID = data.ShopID
+		}
 	}
 
 	if options.MerchantName == "" {
