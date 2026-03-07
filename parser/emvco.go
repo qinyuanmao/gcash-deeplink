@@ -72,9 +72,6 @@ func (p *EMVCoParser) Parse(qrData string) (*models.EMVCoData, error) {
 		data.CRC = match[1]
 	}
 
-	// 根据 QRPH 规范解析 AcqInfo
-	p.resolveAcqInfo(data)
-
 	return data, nil
 }
 
@@ -166,17 +163,6 @@ func (p *EMVCoParser) parseMerchantAccountInfo(qrData string, data *models.EMVCo
 	}
 }
 
-// resolveAcqInfo 确定 AcqInfo 值
-// 默认优先级: Tag 62-05 (Reference Label) > Tag 28-03 (Store Label)
-// 对于 Coins 等需要排除固定 UID 的场景，通过 KnownUID 在 generator 层处理
-func (p *EMVCoParser) resolveAcqInfo(data *models.EMVCoData) {
-	if data.ReferenceLabel != "" {
-		data.AcqInfo = data.ReferenceLabel
-	} else if data.ShopID != "" {
-		data.AcqInfo = data.ShopID
-	}
-}
-
 // isDigit 检查字符是否为数字
 func isDigit(c byte) bool {
 	return c >= '0' && c <= '9'
@@ -231,14 +217,12 @@ func (p *EMVCoParser) parseAdditionalData(qrData string, data *models.EMVCoData)
 
 				subValue := additionalData[j+4 : j+4+subLength]
 
-				// 根据子标签类型存储数据 (QRPH 规范)
+				// 根据子标签类型存储数据
 				switch subTag {
 				case "03":
-					data.OrderID = subValue // Tag 62-03: Store Label / Bill Number
+					data.OrderID = subValue
 				case "05":
-					data.ReferenceLabel = subValue // Tag 62-05: Reference Label
-				case "07":
-					data.TerminalLabel = subValue // Tag 62-07: Terminal Label
+					data.AcqInfo = subValue
 				}
 
 				j += 4 + subLength

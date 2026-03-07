@@ -83,12 +83,7 @@ func (g *DeepLinkGenerator) fillDefaults(data *models.EMVCoData, options *models
 
 	// 客户端 ID
 	if options.ClientID == "" {
-		options.ClientID = "2023062916065505394208"
-	}
-
-	// 商户 ID
-	if options.MerchantID == "" {
-		options.MerchantID = "217020000119199251998"
+		options.ClientID = "2023062916065505394208" // 默认的客户端 ID
 	}
 
 	// 支付类型
@@ -100,43 +95,23 @@ func (g *DeepLinkGenerator) fillDefaults(data *models.EMVCoData, options *models
 		}
 	}
 
-	// KnownUID = 商户号，直接作为 acqInfo
-	if options.KnownUID != "" {
-		data.AcqInfo = options.KnownUID
+	// 默认 merchantId
+	if options.MerchantID == "" {
+		options.MerchantID = "217020000119199251998"
 	}
 
-	// shopId = 订单号（动态值）
-	// 自动检测 QR 格式：
-	//   旧格式: Tag 28-03=订单号(动态), Tag 62-05=UID(固定) → shopId=28-03
-	//   新格式: Tag 28-03=UID(固定),   Tag 62-05=订单号(动态) → shopId=62-05
+	// 新版 QR 格式: 28-03=UID, 62-05=订单号
+	// 交换 shopId 和 acqInfo，使 shopId=订单号, acqInfo=UID
+	if options.NewQRFormat {
+		data.ShopID, data.AcqInfo = data.AcqInfo, data.ShopID
+	}
+
 	if options.ShopID == "" {
-		if options.KnownUID != "" && data.ShopID == options.KnownUID && data.ReferenceLabel != "" {
-			// 新格式: Tag 28-03 是 KnownUID，订单号在 Tag 62-05
-			options.ShopID = data.ReferenceLabel
-		} else {
-			// 旧格式/默认: Tag 28-03 是订单号
-			options.ShopID = data.ShopID
-		}
+		options.ShopID = data.ShopID
 	}
 
 	if options.MerchantName == "" {
 		options.MerchantName = data.MerchantName
-	}
-
-	// 商户城市 - 从 QR Code (Tag 60) 自动填充
-	if options.MerchantCity == "" {
-		options.MerchantCity = data.MerchantCity
-	}
-
-	// 商户分类码 - 从 QR Code (Tag 52) 自动填充
-	if options.MerchantCategoryCode == "" {
-		options.MerchantCategoryCode = data.MerchantCategoryCode
-	}
-
-	// lucky 默认 false (与 Luca 保持一致)
-	if options.EnableLucky == nil {
-		f := false
-		options.EnableLucky = &f
 	}
 
 	// 业务单号
@@ -201,24 +176,15 @@ func (g *DeepLinkGenerator) buildParam3(options *models.DeepLinkOptions) string 
 }
 
 // buildParam5 构建 param5 参数
-// 格式: ShopID~{middle}~~AcqInfo
-//   有 OrderID(62-03) 时: middle = OrderID~TerminalLabel
-//   无 OrderID 时:        middle = MerchantName
 func (g *DeepLinkGenerator) buildParam5(data *models.EMVCoData, options *models.DeepLinkOptions) string {
 	if options.ShopID == "" {
 		return ""
 	}
-
 	middle := options.MerchantName
 	if data.OrderID != "" {
-		middle = fmt.Sprintf("%s~%s", data.OrderID, data.TerminalLabel)
+		middle = data.OrderID
 	}
-
-	return fmt.Sprintf("%s~%s~~%s",
-		options.ShopID,
-		middle,
-		data.AcqInfo,
-	)
+	return fmt.Sprintf("%s~%s~~~%s", options.ShopID, middle, data.AcqInfo)
 }
 
 // errorResult 创建错误结果

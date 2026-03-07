@@ -16,16 +16,14 @@ type EMVCoData struct {
 	MerchantCity         string // Tag 60 - 商户城市
 	MerchantCategoryCode string // Tag 52 - 商户分类码 (MCC)
 
-	// 账户信息 (Tag 28 - Merchant Account Information)
-	ShopID   string // Tag 28-03 - Store Label (商户账号/收单标识)
-	BankCode string // Tag 28-01 - Acquirer Bank SWIFT Code
+	// 账户信息
+	ShopID   string // 店铺 ID
+	BankCode string // 银行代码
 
-	// 附加数据 (Tag 62 - Additional Data Field Template)
-	OrderID       string // Tag 62-03 - Store Label / Bill Number (账单号)
-	AcqInfo       string // 收单信息 - 优先 Tag 62-05，回退 Tag 28-03
-	ReferenceLabel string // Tag 62-05 - Reference Label (参考标签，原始值)
-	TerminalLabel string // Tag 62-07 - Terminal Label (终端标签)
-	CRC           string // Tag 63 - CRC 校验码
+	// 附加数据
+	OrderID string // Tag 62 子标签 - Bill Number (账单号)
+	AcqInfo string // Tag 62 子标签 - Reference Label (参考标签)
+	CRC     string // Tag 63 - CRC 校验码
 
 	// 原始数据
 	RawData string // 原始 QR Code 数据
@@ -61,9 +59,9 @@ type DeepLinkOptions struct {
 	ShopID               string      // 店铺 ID
 
 	// 高级选项
-	EnableLucky *bool  // 是否启用抽奖 (可选,不设置则不添加到 deeplink)
-	BizNo       string // 业务单号
-	KnownUID    string // 已知的固定 UID (Coins 钱包 ID)，用于自动排除并选择正确的 Coins Reference Number
+	EnableLucky  *bool  // 是否启用抽奖 (可选,不设置则不添加到 deeplink)
+	BizNo        string // 业务单号
+	NewQRFormat  bool   // true=新格式(28-03=UID,62-05=订单号), false=旧格式(默认,28-03=订单号,62-05=UID)
 }
 
 // DeepLinkResult Deep Link 生成结果
