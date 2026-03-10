@@ -114,6 +114,18 @@ func (g *DeepLinkGenerator) fillDefaults(data *models.EMVCoData, options *models
 		options.MerchantName = data.MerchantName
 	}
 
+	// 从 QR 数据自动填充 merchantCity、merchantCategoryCode、lucky
+	if options.MerchantCity == "" {
+		options.MerchantCity = data.MerchantCity
+	}
+	if options.MerchantCategoryCode == "" {
+		options.MerchantCategoryCode = data.MerchantCategoryCode
+	}
+	if options.EnableLucky == nil {
+		f := false
+		options.EnableLucky = &f
+	}
+
 	// 业务单号
 	if options.BizNo == "" {
 		options.BizNo = "null"
