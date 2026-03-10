@@ -191,15 +191,12 @@ func (g *DeepLinkGenerator) buildParam3(options *models.DeepLinkOptions) string 
 }
 
 // buildParam5 构建 param5 参数
+// 格式: ShopID~MerchantName~TerminalLabel~AcqInfo (4段3波浪，对齐 Luca 模板)
 func (g *DeepLinkGenerator) buildParam5(data *models.EMVCoData, options *models.DeepLinkOptions) string {
 	if options.ShopID == "" {
 		return ""
 	}
-	middle := options.MerchantName
-	if data.OrderID != "" {
-		middle = data.OrderID
-	}
-	return fmt.Sprintf("%s~%s~~~%s", options.ShopID, middle, data.AcqInfo)
+	return fmt.Sprintf("%s~%s~%s~%s", options.ShopID, options.MerchantName, data.TerminalLabel, data.AcqInfo)
 }
 
 // errorResult 创建错误结果

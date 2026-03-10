@@ -223,6 +223,8 @@ func (p *EMVCoParser) parseAdditionalData(qrData string, data *models.EMVCoData)
 					data.OrderID = subValue
 				case "05":
 					data.AcqInfo = subValue
+				case "07":
+					data.TerminalLabel = subValue
 				}
 
 				j += 4 + subLength

@@ -21,9 +21,10 @@ type EMVCoData struct {
 	BankCode string // 银行代码
 
 	// 附加数据
-	OrderID string // Tag 62 子标签 - Bill Number (账单号)
-	AcqInfo string // Tag 62 子标签 - Reference Label (参考标签)
-	CRC     string // Tag 63 - CRC 校验码
+	OrderID       string // Tag 62-03 - Bill Number (账单号)
+	AcqInfo       string // Tag 62-05 - Reference Label (参考标签)
+	TerminalLabel string // Tag 62-07 - Terminal Label
+	CRC           string // Tag 63 - CRC 校验码
 
 	// 原始数据
 	RawData string // 原始 QR Code 数据

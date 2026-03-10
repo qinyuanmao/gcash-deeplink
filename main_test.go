@@ -164,8 +164,8 @@ func TestParam5WithMerchantName(t *testing.T) {
 		t.Fatalf("生成失败: %v", err)
 	}
 
-	// param5 应包含 merchantName 作为 middle 值
-	expectedParam5 := "SHOP123~TestMerchant~~~ACQ456"
+	// param5: ShopID~MerchantName~TerminalLabel~AcqInfo (4段格式)
+	expectedParam5 := "SHOP123~TestMerchant~~ACQ456"
 	deepLink := result.DeepLink
 
 	if !containsParam(deepLink, "param5", expectedParam5) {
