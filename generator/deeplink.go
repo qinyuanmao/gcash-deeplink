@@ -3,6 +3,7 @@ package generator
 import (
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/qinyuanmao/gcash-deeplink/models"
@@ -39,7 +40,9 @@ func (g *DeepLinkGenerator) Generate(data *models.EMVCoData, options *models.Dee
 	values := g.buildParameters(data, options)
 
 	// 生成 Deep Link
-	deepLink := fmt.Sprintf("%s?%s", GCashBaseURL, values.Encode())
+	// 使用 %20 替换 + 编码空格，确保 Android Uri.getQueryParameter() 正确解码
+	query := strings.ReplaceAll(values.Encode(), "+", "%20")
+	deepLink := fmt.Sprintf("%s?%s", GCashBaseURL, query)
 
 	return &models.DeepLinkResult{
 		Success:     true,
