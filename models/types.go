@@ -50,8 +50,6 @@ type DeepLinkOptions struct {
 	// 可选参数
 	MerchantID           string      // 商户 ID (可选)
 	MerchantName         string      // 商户名称 (可选)
-	MerchantCity         string      // 商户城市 (可选,不设置则不添加到 deeplink)
-	MerchantCategoryCode string      // 商户分类码 (可选,不设置则不添加到 deeplink)
 	OrderID              string      // 订单 ID
 	PaymentType          PaymentType // 支付类型
 	RedirectURL          string      // 支付完成后跳转 URL
@@ -60,7 +58,6 @@ type DeepLinkOptions struct {
 	ShopID               string      // 店铺 ID
 
 	// 高级选项
-	EnableLucky  *bool  // 是否启用抽奖 (可选,不设置则不添加到 deeplink)
 	BizNo        string // 业务单号
 	NewQRFormat  bool   // true=新格式(28-03=UID,62-05=订单号), false=旧格式(默认,28-03=订单号,62-05=UID)
 }

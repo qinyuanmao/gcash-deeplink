@@ -73,8 +73,6 @@ func (d *DeepLinkDebugger) DebugDeepLink(deepLink string) {
 		"shopId",
 		"tfrAcctNo",
 		"acqInfo",
-		"merchantCity",
-		"merchantCategoryCode",
 		"redirectUrl",
 		"returnUrl",
 		"notifyUrl",
@@ -82,7 +80,6 @@ func (d *DeepLinkDebugger) DebugDeepLink(deepLink string) {
 		"param3",
 		"param5",
 		"bizNo",
-		"lucky",
 	}
 
 	fmt.Println("📋 可选参数：")
