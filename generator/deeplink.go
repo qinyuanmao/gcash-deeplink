@@ -105,7 +105,8 @@ func (g *DeepLinkGenerator) fillDefaults(data *models.EMVCoData, options *models
 
 	// 新版 QR 格式: 28-03=UID, 62-05=订单号
 	// 交换 shopId 和 acqInfo，使 shopId=订单号, acqInfo=UID
-	if options.NewQRFormat {
+	// 仅在两个值都非空时才交换，防止 ShopID 被清空导致 param5 丢失
+	if options.NewQRFormat && data.AcqInfo != "" && data.ShopID != "" {
 		data.ShopID, data.AcqInfo = data.AcqInfo, data.ShopID
 	}
 

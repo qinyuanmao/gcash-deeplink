@@ -117,49 +117,57 @@ func (p *EMVCoParser) extractVariableLengthField(qrData, tag string) string {
 
 // parseMerchantAccountInfo 解析商户账户信息
 func (p *EMVCoParser) parseMerchantAccountInfo(qrData string, data *models.EMVCoData) {
-	// Tag 26, 27 或 28 - 商户账户信息模板
-	// 使用逐字符解析避免正则表达式匹配错误
+	// 使用 TLV 顺序解析查找 Tag 26/27/28，避免值内容中的数字被误匹配
 	i := 0
-	for i < len(qrData)-4 {
+	for i <= len(qrData)-4 {
 		tag := qrData[i : i+2]
-		if tag == "26" || tag == "27" || tag == "28" {
-			// 验证这是一个 Tag（前面应该是另一个 Tag 的结束或开始）
-			lengthStr := qrData[i+2 : i+4]
-			if len(lengthStr) == 2 && isDigit(lengthStr[0]) && isDigit(lengthStr[1]) {
-				length, _ := strconv.Atoi(lengthStr)
-				if i+4+length <= len(qrData) {
-					merchantInfo := qrData[i+4 : i+4+length]
+		lengthStr := qrData[i+2 : i+4]
 
-					// 提取银行代码 (tfrbnkcode) - 子标签 01
-					subIdx := 0
-					for subIdx < len(merchantInfo)-4 {
-						subTag := merchantInfo[subIdx : subIdx+2]
-						subLengthStr := merchantInfo[subIdx+2 : subIdx+4]
-						if len(subLengthStr) == 2 && isDigit(subLengthStr[0]) && isDigit(subLengthStr[1]) {
-							subLength, _ := strconv.Atoi(subLengthStr)
-							if subIdx+4+subLength <= len(merchantInfo) {
-								subValue := merchantInfo[subIdx+4 : subIdx+4+subLength]
-
-								if subTag == "01" {
-									data.BankCode = subValue
-								} else if subTag == "03" {
-									data.ShopID = subValue
-								}
-
-								subIdx += 4 + subLength
-							} else {
-								break
-							}
-						} else {
-							break
-						}
-					}
-
-					return // 找到并处理完 Tag 26/27/28，退出
-				}
-			}
+		if !isDigit(lengthStr[0]) || !isDigit(lengthStr[1]) {
+			break
 		}
-		i++
+
+		length, err := strconv.Atoi(lengthStr)
+		if err != nil || i+4+length > len(qrData) {
+			break
+		}
+
+		// 找到 Tag 26/27/28（商户账户信息）
+		if tag == "26" || tag == "27" || tag == "28" {
+			merchantInfo := qrData[i+4 : i+4+length]
+
+			// 解析子标签
+			subIdx := 0
+			for subIdx <= len(merchantInfo)-4 {
+				subTag := merchantInfo[subIdx : subIdx+2]
+				subLengthStr := merchantInfo[subIdx+2 : subIdx+4]
+
+				if !isDigit(subLengthStr[0]) || !isDigit(subLengthStr[1]) {
+					break
+				}
+
+				subLength, err := strconv.Atoi(subLengthStr)
+				if err != nil || subIdx+4+subLength > len(merchantInfo) {
+					break
+				}
+
+				subValue := merchantInfo[subIdx+4 : subIdx+4+subLength]
+
+				switch subTag {
+				case "01":
+					data.BankCode = subValue
+				case "03":
+					data.ShopID = subValue
+				}
+
+				subIdx += 4 + subLength
+			}
+
+			return
+		}
+
+		// TLV 跳跃：跳过当前 Tag 的完整内容
+		i += 4 + length
 	}
 }
 
@@ -259,12 +267,15 @@ func (p *EMVCoParser) Validate(qrData string) *models.ValidationResult {
 	}
 
 	// 3. 检查版本号 (Tag 00)
-	if !regexp.MustCompile(`^0002`).MatchString(qrData) {
+	if !strings.HasPrefix(qrData, "0002") {
 		result.Valid = false
 		result.Errors = append(result.Errors, "QR Code 应以 0002 开头 (版本号)")
 	}
 
-	// 4. 检查必需的标签
+	// 4. 使用 TLV 顺序解析收集所有存在的 Tag
+	foundTags := p.collectTags(qrData)
+
+	// 5. 检查必需的标签
 	requiredTags := map[string]string{
 		"52": "商户分类码 (MCC)",
 		"53": "货币代码",
@@ -274,20 +285,42 @@ func (p *EMVCoParser) Validate(qrData string) *models.ValidationResult {
 	}
 
 	for tag, name := range requiredTags {
-		pattern := fmt.Sprintf(`%s\d{2}`, tag)
-		if !regexp.MustCompile(pattern).MatchString(qrData) {
+		if !foundTags[tag] {
 			result.Errors = append(result.Errors, fmt.Sprintf("缺少必需字段 Tag %s: %s", tag, name))
 			result.Valid = false
 		}
 	}
 
-	// 5. 检查 CRC (Tag 63)
-	if !regexp.MustCompile(`6304[A-F0-9]{4}$`).MatchString(qrData) {
+	// 6. 检查 CRC (Tag 63)
+	if !foundTags["63"] || !regexp.MustCompile(`6304[A-F0-9]{4}$`).MatchString(qrData) {
 		result.Errors = append(result.Errors, "CRC 校验码格式不正确或缺失")
 		result.Valid = false
 	}
 
 	return result
+}
+
+// collectTags 使用 TLV 顺序解析收集所有顶层 Tag
+func (p *EMVCoParser) collectTags(qrData string) map[string]bool {
+	tags := make(map[string]bool)
+	i := 0
+	for i <= len(qrData)-4 {
+		tag := qrData[i : i+2]
+		lengthStr := qrData[i+2 : i+4]
+
+		if !isDigit(lengthStr[0]) || !isDigit(lengthStr[1]) {
+			break
+		}
+
+		length, err := strconv.Atoi(lengthStr)
+		if err != nil || i+4+length > len(qrData) {
+			break
+		}
+
+		tags[tag] = true
+		i += 4 + length
+	}
+	return tags
 }
 
 // GetSummary 获取 QR Code 摘要信息
