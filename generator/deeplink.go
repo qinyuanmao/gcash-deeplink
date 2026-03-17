@@ -53,22 +53,15 @@ func (g *DeepLinkGenerator) Generate(data *models.EMVCoData, options *models.Dee
 	}, nil
 }
 
-// GenerateWithValidation 生成并验证 Deep Link
+// GenerateWithValidation 解析 QR Code 并生成 Deep Link
+// Parse() 内部优先使用严格解析（含 CRC），失败时自动回退宽松解析
+// GCash 后端会自行校验 QR 码，因此此处不再额外调用 Validate() 拦截
 func (g *DeepLinkGenerator) GenerateWithValidation(qrData string, options *models.DeepLinkOptions) (*models.DeepLinkResult, error) {
-	// 1. 解析 QR Code
 	p := parser.NewEMVCoParser()
 	data, err := p.Parse(qrData)
 	if err != nil {
 		return g.errorResult(fmt.Sprintf("解析失败: %v", err))
 	}
-
-	// 2. 验证 QR Code
-	validation := p.Validate(qrData)
-	if !validation.Valid {
-		return g.errorResult(fmt.Sprintf("验证失败: %v", validation.Errors))
-	}
-
-	// 3. 生成 Deep Link
 	return g.Generate(data, options)
 }
 

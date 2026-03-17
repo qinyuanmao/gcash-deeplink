@@ -181,9 +181,45 @@ func containsParam(deepLink, key, expected string) bool {
 	return u.Query().Get(key) == expected
 }
 
-// TestParseMerchantAccountInfoTLV 已移除：
-// 该测试使用手工构造的 QR 码，CRC=0000（伪值），mercari mpm.Decode 会校验 CRC 失败。
-// TLV 解析正确性已由 mercari 库保证，无需单独测试。
+// TestParseFallbackBadCRC 验证 CRC 错误时 Parse 回退到宽松 TLV 解析
+func TestParseFallbackBadCRC(t *testing.T) {
+	// 手工构造的 QR 码，CRC=0000（伪值），mpm.Decode 会校验失败
+	// Parse 应通过 fallback 成功解析
+	qrCode := "00020101021228530011ph.ppmi.p2m0111SRCPPHM2XXX0312MRCHNT-4H3TZ05030005204519953036085406100.005802PH5925SOCMED DIGITAL MARKETING 6010MakatiCity62650010ph.starpay0315SOCMED DIGITAL 0509OR#1Z1CSC0708TodayPay0803***88290012ph.ppmi.qrph0109OR#1Z1CSC63040000"
+
+	p := parser.NewEMVCoParser()
+	data, err := p.Parse(qrCode)
+	if err != nil {
+		t.Fatalf("Fallback 解析应成功，但失败: %v", err)
+	}
+
+	if data.Amount != "100.00" {
+		t.Errorf("金额错误: got %s, want 100.00", data.Amount)
+	}
+	if data.MerchantName != "SOCMED DIGITAL MARKETING" {
+		t.Errorf("商户名称错误: got %q", data.MerchantName)
+	}
+	if data.ShopID != "MRCHNT-4H3TZ" {
+		t.Errorf("ShopID 错误: got %q", data.ShopID)
+	}
+	if data.BankCode != "SRCPPHM2XXX" {
+		t.Errorf("BankCode 错误: got %q", data.BankCode)
+	}
+}
+
+// TestGenerateDeepLinkBadCRC 验证 CRC 错误时 GenerateWithValidation 仍能生成 deeplink
+func TestGenerateDeepLinkBadCRC(t *testing.T) {
+	qrCode := "00020101021228530011ph.ppmi.p2m0111SRCPPHM2XXX0312MRCHNT-4H3TZ05030005204519953036085406100.005802PH5925SOCMED DIGITAL MARKETING 6010MakatiCity62650010ph.starpay0315SOCMED DIGITAL 0509OR#1Z1CSC0708TodayPay0803***88290012ph.ppmi.qrph0109OR#1Z1CSC63040000"
+
+	g := generator.NewDeepLinkGenerator()
+	result, err := g.GenerateWithValidation(qrCode, &models.DeepLinkOptions{})
+	if err != nil {
+		t.Fatalf("CRC 错误时 GenerateWithValidation 应成功: %v", err)
+	}
+	if !result.Success || result.DeepLink == "" {
+		t.Errorf("应生成有效 deeplink, success=%v, link=%q", result.Success, result.DeepLink)
+	}
+}
 
 func TestNewQRFormatEmptyAcqInfo(t *testing.T) {
 	// AcqInfo 为空时，NewQRFormat=true 不应交换，ShopID 应保持原值
