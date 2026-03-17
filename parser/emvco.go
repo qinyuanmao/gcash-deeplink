@@ -2,9 +2,10 @@ package parser
 
 import (
 	"fmt"
-	"regexp"
-	"strconv"
 	"strings"
+
+	"go.mercari.io/go-emv-code/mpm"
+	"go.mercari.io/go-emv-code/tlv"
 
 	"github.com/qinyuanmao/gcash-deeplink/models"
 )
@@ -17,310 +18,99 @@ func NewEMVCoParser() *EMVCoParser {
 	return &EMVCoParser{}
 }
 
-// Parse 解析 EMVCo QR Code
+// merchantAccountSub Tag 26-51 子标签结构
+type merchantAccountSub struct {
+	GlobalUID string `emv:"00"`
+	BankCode  string `emv:"01"`
+	ShopID    string `emv:"03"`
+}
+
+// additionalDataSub Tag 62 子标签结构
+type additionalDataSub struct {
+	OrderID       string `emv:"03"`
+	AcqInfo       string `emv:"05"`
+	TerminalLabel string `emv:"07"`
+}
+
+// Parse 解析 EMVCo QR Code（使用 mercari mpm.Decode）
 func (p *EMVCoParser) Parse(qrData string) (*models.EMVCoData, error) {
 	if qrData == "" {
 		return nil, fmt.Errorf("QR Code 数据不能为空")
 	}
 
+	code, err := mpm.Decode([]byte(qrData))
+	if err != nil {
+		return nil, fmt.Errorf("EMVCo 解析失败: %w", err)
+	}
+
 	data := &models.EMVCoData{
-		RawData: qrData,
+		RawData:              qrData,
+		Version:              code.PayloadFormatIndicator,
+		InitMethod:           string(code.PointOfInitiationMethod),
+		MerchantCategoryCode: strings.TrimSpace(code.MerchantCategoryCode),
+		Currency:             strings.TrimSpace(code.TransactionCurrency),
+		CountryCode:          strings.TrimSpace(code.CountryCode),
+		MerchantName:         strings.TrimSpace(code.MerchantName),
+		MerchantCity:         strings.TrimSpace(code.MerchantCity),
 	}
 
-	// 解析版本 (Tag 00)
-	if match := regexp.MustCompile(`^00(\d{2})(\d+)`).FindStringSubmatch(qrData); len(match) > 2 {
-		length, _ := strconv.Atoi(match[1])
-		if len(match[2]) >= length {
-			data.Version = match[2][:length]
-		}
+	// Amount (NullString)
+	if code.TransactionAmount.Valid {
+		data.Amount = code.TransactionAmount.String
 	}
 
-	// 解析初始化方法 (Tag 01)
-	if match := regexp.MustCompile(`01(\d{2})(\d+)`).FindStringSubmatch(qrData); len(match) > 2 {
-		length, _ := strconv.Atoi(match[1])
-		if len(match[2]) >= length {
-			data.InitMethod = match[2][:length]
-		}
-	}
+	// Tag 02-51 Merchant Account Info — 解析子标签
+	parseMerchantSubTags(code, data)
 
-	// 解析商户分类代码 (Tag 52)
-	data.MerchantCategoryCode = p.extractVariableLengthField(qrData, "52")
-
-	// 解析货币代码 (Tag 53)
-	data.Currency = p.extractVariableLengthField(qrData, "53")
-
-	// 解析金额 (Tag 54)
-	data.Amount = p.extractVariableLengthField(qrData, "54")
-
-	// 解析国家代码 (Tag 58)
-	data.CountryCode = p.extractVariableLengthField(qrData, "58")
-
-	// 解析商户名称 (Tag 59)
-	data.MerchantName = p.extractVariableLengthField(qrData, "59")
-
-	// 解析商户城市 (Tag 60)
-	data.MerchantCity = p.extractVariableLengthField(qrData, "60")
-
-	// 解析商户账户信息 (Tag 26 或 27)
-	p.parseMerchantAccountInfo(qrData, data)
-
-	// 解析附加数据 (Tag 62)
-	p.parseAdditionalData(qrData, data)
-
-	// 解析 CRC (Tag 63)
-	if match := regexp.MustCompile(`6304([A-F0-9]{4})$`).FindStringSubmatch(qrData); len(match) > 1 {
-		data.CRC = match[1]
-	}
+	// Tag 62 Additional Data — 解析子标签
+	parseAdditionalSubTags(code.AdditionalDataFieldTemplate, data)
 
 	return data, nil
 }
 
-// extractVariableLengthField 提取可变长度字段
-func (p *EMVCoParser) extractVariableLengthField(qrData, tag string) string {
-	// 按照 EMVCo TLV (Tag-Length-Value) 结构顺序解析
-	// 这样可以避免匹配到值内部的数字模式
-	i := 0
-	for i <= len(qrData)-4 {
-		// 读取当前位置的 tag (2 字节)
-		currentTag := qrData[i : i+2]
-
-		// 读取长度字段 (2 字节)
-		lengthStr := qrData[i+2 : i+4]
-		if !isDigit(lengthStr[0]) || !isDigit(lengthStr[1]) {
-			i++
-			continue
+// Validate 验证 EMVCo QR Code（mpm.Decode 自带 CRC 校验和格式验证）
+func (p *EMVCoParser) Validate(qrData string) *models.ValidationResult {
+	if qrData == "" {
+		return &models.ValidationResult{
+			Valid:  false,
+			Errors: []string{"QR Code 数据不能为空"},
 		}
-
-		length, err := strconv.Atoi(lengthStr)
-		if err != nil {
-			i++
-			continue
-		}
-
-		// 检查是否有足够的数据
-		if i+4+length > len(qrData) {
-			i++
-			continue
-		}
-
-		// 如果是我们要找的 tag，返回值
-		if currentTag == tag {
-			value := qrData[i+4 : i+4+length]
-			return strings.TrimSpace(value)
-		}
-
-		// 跳过当前 TLV (Tag + Length + Value)
-		i += 4 + length
 	}
-	return ""
+
+	_, err := mpm.Decode([]byte(qrData))
+	if err != nil {
+		return &models.ValidationResult{
+			Valid:  false,
+			Errors: []string{err.Error()},
+		}
+	}
+	return &models.ValidationResult{Valid: true}
 }
 
-// parseMerchantAccountInfo 解析商户账户信息
-func (p *EMVCoParser) parseMerchantAccountInfo(qrData string, data *models.EMVCoData) {
-	// 使用 TLV 顺序解析查找 Tag 26/27/28，避免值内容中的数字被误匹配
-	i := 0
-	for i <= len(qrData)-4 {
-		tag := qrData[i : i+2]
-		lengthStr := qrData[i+2 : i+4]
-
-		if !isDigit(lengthStr[0]) || !isDigit(lengthStr[1]) {
-			break
-		}
-
-		length, err := strconv.Atoi(lengthStr)
-		if err != nil || i+4+length > len(qrData) {
-			break
-		}
-
-		// 找到 Tag 26/27/28（商户账户信息）
-		if tag == "26" || tag == "27" || tag == "28" {
-			merchantInfo := qrData[i+4 : i+4+length]
-
-			// 解析子标签
-			subIdx := 0
-			for subIdx <= len(merchantInfo)-4 {
-				subTag := merchantInfo[subIdx : subIdx+2]
-				subLengthStr := merchantInfo[subIdx+2 : subIdx+4]
-
-				if !isDigit(subLengthStr[0]) || !isDigit(subLengthStr[1]) {
-					break
-				}
-
-				subLength, err := strconv.Atoi(subLengthStr)
-				if err != nil || subIdx+4+subLength > len(merchantInfo) {
-					break
-				}
-
-				subValue := merchantInfo[subIdx+4 : subIdx+4+subLength]
-
-				switch subTag {
-				case "01":
-					data.BankCode = subValue
-				case "03":
-					data.ShopID = subValue
-				}
-
-				subIdx += 4 + subLength
-			}
-
+// parseMerchantSubTags 从 MerchantAccountInformation 中解析子标签
+func parseMerchantSubTags(code *mpm.Code, data *models.EMVCoData) {
+	for _, t := range code.MerchantAccountInformation {
+		var sub merchantAccountSub
+		_ = tlv.NewDecoder(strings.NewReader(t.Value), "emv", 512, 2, 2, nil).Decode(&sub)
+		// 只取包含 ph.ppmi.p2m 的 merchant account
+		if strings.Contains(sub.GlobalUID, "ph.ppmi.p2m") {
+			data.BankCode = sub.BankCode
+			data.ShopID = sub.ShopID
 			return
 		}
-
-		// TLV 跳跃：跳过当前 Tag 的完整内容
-		i += 4 + length
 	}
 }
 
-// isDigit 检查字符是否为数字
-func isDigit(c byte) bool {
-	return c >= '0' && c <= '9'
-}
-
-// parseAdditionalData 解析附加数据
-func (p *EMVCoParser) parseAdditionalData(qrData string, data *models.EMVCoData) {
-	// 使用 TLV 顺序解析来查找 Tag 62
-	i := 0
-	for i <= len(qrData)-4 {
-		tag := qrData[i : i+2]
-		lengthStr := qrData[i+2 : i+4]
-
-		if !isDigit(lengthStr[0]) || !isDigit(lengthStr[1]) {
-			i++
-			continue
-		}
-
-		length, err := strconv.Atoi(lengthStr)
-		if err != nil {
-			i++
-			continue
-		}
-
-		if i+4+length > len(qrData) {
-			i++
-			continue
-		}
-
-		// 找到 Tag 62 (附加数据)
-		if tag == "62" {
-			additionalData := qrData[i+4 : i+4+length]
-
-			// 解析 Tag 62 的子标签
-			j := 0
-			for j <= len(additionalData)-4 {
-				subTag := additionalData[j : j+2]
-				subLengthStr := additionalData[j+2 : j+4]
-
-				if !isDigit(subLengthStr[0]) || !isDigit(subLengthStr[1]) {
-					break
-				}
-
-				subLength, err := strconv.Atoi(subLengthStr)
-				if err != nil {
-					break
-				}
-
-				if j+4+subLength > len(additionalData) {
-					break
-				}
-
-				subValue := additionalData[j+4 : j+4+subLength]
-
-				// 根据子标签类型存储数据
-				switch subTag {
-				case "03":
-					data.OrderID = subValue
-				case "05":
-					data.AcqInfo = subValue
-				case "07":
-					data.TerminalLabel = subValue
-				}
-
-				j += 4 + subLength
-			}
-
-			return // 找到并处理完 Tag 62，退出
-		}
-
-		// 跳过当前 TLV
-		i += 4 + length
+// parseAdditionalSubTags 从 AdditionalDataFieldTemplate 中解析子标签
+func parseAdditionalSubTags(template string, data *models.EMVCoData) {
+	if template == "" {
+		return
 	}
-}
-
-// Validate 验证 EMVCo QR Code
-func (p *EMVCoParser) Validate(qrData string) *models.ValidationResult {
-	result := &models.ValidationResult{
-		Valid:  true,
-		Errors: []string{},
-	}
-
-	// 1. 检查是否为空
-	if qrData == "" {
-		result.Valid = false
-		result.Errors = append(result.Errors, "QR Code 数据不能为空")
-		return result
-	}
-
-	// 2. 检查最小长度
-	if len(qrData) < 50 {
-		result.Valid = false
-		result.Errors = append(result.Errors, "QR Code 数据长度过短")
-	}
-
-	// 3. 检查版本号 (Tag 00)
-	if !strings.HasPrefix(qrData, "0002") {
-		result.Valid = false
-		result.Errors = append(result.Errors, "QR Code 应以 0002 开头 (版本号)")
-	}
-
-	// 4. 使用 TLV 顺序解析收集所有存在的 Tag
-	foundTags := p.collectTags(qrData)
-
-	// 5. 检查必需的标签
-	requiredTags := map[string]string{
-		"52": "商户分类码 (MCC)",
-		"53": "货币代码",
-		"58": "国家代码",
-		"59": "商户名称",
-		"60": "商户城市",
-	}
-
-	for tag, name := range requiredTags {
-		if !foundTags[tag] {
-			result.Errors = append(result.Errors, fmt.Sprintf("缺少必需字段 Tag %s: %s", tag, name))
-			result.Valid = false
-		}
-	}
-
-	// 6. 检查 CRC (Tag 63)
-	if !foundTags["63"] || !regexp.MustCompile(`6304[A-F0-9]{4}$`).MatchString(qrData) {
-		result.Errors = append(result.Errors, "CRC 校验码格式不正确或缺失")
-		result.Valid = false
-	}
-
-	return result
-}
-
-// collectTags 使用 TLV 顺序解析收集所有顶层 Tag
-func (p *EMVCoParser) collectTags(qrData string) map[string]bool {
-	tags := make(map[string]bool)
-	i := 0
-	for i <= len(qrData)-4 {
-		tag := qrData[i : i+2]
-		lengthStr := qrData[i+2 : i+4]
-
-		if !isDigit(lengthStr[0]) || !isDigit(lengthStr[1]) {
-			break
-		}
-
-		length, err := strconv.Atoi(lengthStr)
-		if err != nil || i+4+length > len(qrData) {
-			break
-		}
-
-		tags[tag] = true
-		i += 4 + length
-	}
-	return tags
+	var sub additionalDataSub
+	_ = tlv.NewDecoder(strings.NewReader(template), "emv", 512, 2, 2, nil).Decode(&sub)
+	data.OrderID = sub.OrderID
+	data.AcqInfo = sub.AcqInfo
+	data.TerminalLabel = sub.TerminalLabel
 }
 
 // GetSummary 获取 QR Code 摘要信息
