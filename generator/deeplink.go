@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	// GCash Deep Link 基础 URL
-	GCashBaseURL = "gcash://com.mynt.gcash/app/006300000800"
+	// GCash Deep Link 基础 URL (PAY_QR 微应用)
+	GCashBaseURL = "gcash://com.mynt.gcash/app/006300120000"
 )
 
 // DeepLinkGenerator GCash Deep Link 生成器
@@ -149,6 +149,11 @@ func (g *DeepLinkGenerator) buildParameters(data *models.EMVCoData, options *mod
 	param5 := g.buildParam5(data, options)
 	g.addIfNotEmpty(values, "param3", param3)
 	g.addIfNotEmpty(values, "param5", param5)
+
+	// GCash PAY_QR 需要的额外参数
+	g.addIfNotEmpty(values, "merchantCity", data.MerchantCity)
+	g.addIfNotEmpty(values, "merchantCategoryCode", data.MerchantCategoryCode)
+	values.Add("lucky", "false")
 
 	return values
 }
