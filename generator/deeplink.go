@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	// GCash Deep Link 基础 URL (PAY_QR 微应用)
-	GCashBaseURL = "gcash://com.mynt.gcash/app/006300120000"
+	// GCash Deep Link 基础 URL
+	GCashBaseURL = "gcash://com.mynt.gcash/app/006300000800"
 )
 
 // DeepLinkGenerator GCash Deep Link 生成器
