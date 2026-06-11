@@ -147,6 +147,55 @@ func TestNewQRFormat(t *testing.T) {
 	}
 }
 
+func TestNewQRFormatEmptyAcqInfo(t *testing.T) {
+	// AcqInfo 为空时，NewQRFormat=true 不应交换，ShopID 应保持原值
+	data := &models.EMVCoData{
+		ShopID:  "SHOP123",
+		AcqInfo: "", // 空值
+		RawData: "testdata",
+		Amount:  "100.00",
+	}
+
+	g := generator.NewDeepLinkGenerator()
+	result, err := g.Generate(data, &models.DeepLinkOptions{
+		NewQRFormat: true,
+	})
+	if err != nil {
+		t.Fatalf("生成失败: %v", err)
+	}
+
+	// ShopID 不应被清空
+	if result.Options.ShopID != "SHOP123" {
+		t.Errorf("ShopID 被清空: got %q, want SHOP123", result.Options.ShopID)
+	}
+
+	if !containsParam(result.DeepLink, "shopId", "SHOP123") {
+		t.Errorf("shopId 参数丢失, deepLink: %s", result.DeepLink)
+	}
+}
+
+func TestPPMIAutoDetect(t *testing.T) {
+	// 含 28-04 时自动走 PPMI 映射，NewQRFormat 应被忽略
+	qrCode := "00020101021228790011ph.ppmi.p2m0111PAEYPHM2XXX0324u7phpYjGKmmqYzKwJYVzVyjZ04100303002886050301052047278530360854071000.005802PH5914FastYRuvGWmLJ36010Pasig City62430012ph.ppmi.qrph0306oUTgiE05062110000803***88440012ph.ppmi.qrph0124u7phpYjGKmmqYzKwJYVzVyjZ63044CE5"
+
+	g := generator.NewDeepLinkGenerator()
+	// 显式传 NewQRFormat=true，验证 PPMI 优先级更高（不应触发 swap）
+	result, err := g.GenerateWithValidation(qrCode, &models.DeepLinkOptions{NewQRFormat: true})
+	if err != nil {
+		t.Fatalf("生成失败: %v", err)
+	}
+
+	if got := result.ParsedData.DestinationAccount; got != "0303002886" {
+		t.Errorf("DestinationAccount 错误: got %q, want 0303002886", got)
+	}
+	if !containsParam(result.DeepLink, "shopId", "u7phpYjGKmmqYzKwJYVzVyjZ") {
+		t.Errorf("PPMI 模式 shopId 应为 28-03，不应 swap, deepLink: %s", result.DeepLink)
+	}
+	if !containsParam(result.DeepLink, "tfrAcctNo", "0303002886") {
+		t.Errorf("PPMI 模式 tfrAcctNo 应取 28-04, deepLink: %s", result.DeepLink)
+	}
+}
+
 func TestParam5WithMerchantName(t *testing.T) {
 	// 使用没有 OrderID 的场景
 	data := &models.EMVCoData{
@@ -218,34 +267,6 @@ func TestGenerateDeepLinkBadCRC(t *testing.T) {
 	}
 	if !result.Success || result.DeepLink == "" {
 		t.Errorf("应生成有效 deeplink, success=%v, link=%q", result.Success, result.DeepLink)
-	}
-}
-
-func TestNewQRFormatEmptyAcqInfo(t *testing.T) {
-	// AcqInfo 为空时，NewQRFormat=true 不应交换，ShopID 应保持原值
-	data := &models.EMVCoData{
-		ShopID:  "SHOP123",
-		AcqInfo: "", // 空值
-		RawData: "testdata",
-		Amount:  "100.00",
-	}
-
-	g := generator.NewDeepLinkGenerator()
-	result, err := g.Generate(data, &models.DeepLinkOptions{
-		NewQRFormat: true,
-	})
-	if err != nil {
-		t.Fatalf("生成失败: %v", err)
-	}
-
-	// ShopID 不应被清空
-	if result.Options.ShopID != "SHOP123" {
-		t.Errorf("ShopID 被清空: got %q, want SHOP123", result.Options.ShopID)
-	}
-
-	// param5 应包含 ShopID
-	if !containsParam(result.DeepLink, "shopId", "SHOP123") {
-		t.Errorf("shopId 参数丢失, deepLink: %s", result.DeepLink)
 	}
 }
 

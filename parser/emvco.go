@@ -21,9 +21,10 @@ func NewEMVCoParser() *EMVCoParser {
 
 // merchantAccountSub Tag 26-51 子标签结构
 type merchantAccountSub struct {
-	GlobalUID string `emv:"00"`
-	BankCode  string `emv:"01"`
-	ShopID    string `emv:"03"`
+	GlobalUID          string `emv:"00"`
+	BankCode           string `emv:"01"`
+	ShopID             string `emv:"03"`
+	DestinationAccount string `emv:"04"`
 }
 
 // additionalDataSub Tag 62 子标签结构
@@ -129,7 +130,8 @@ func parseMerchantSubTagsFallback(value string, data *models.EMVCoData) {
 	_ = tlv.NewDecoder(strings.NewReader(value), "emv", 512, 2, 2, nil).Decode(&sub)
 	if strings.Contains(sub.GlobalUID, "ph.ppmi.p2m") {
 		data.BankCode = sub.BankCode
-		data.ShopID = sub.ShopID
+		data.ShopID = strings.TrimSpace(sub.ShopID)
+		data.DestinationAccount = strings.TrimSpace(sub.DestinationAccount)
 	}
 }
 
@@ -160,7 +162,8 @@ func parseMerchantSubTags(code *mpm.Code, data *models.EMVCoData) {
 		// 只取包含 ph.ppmi.p2m 的 merchant account
 		if strings.Contains(sub.GlobalUID, "ph.ppmi.p2m") {
 			data.BankCode = sub.BankCode
-			data.ShopID = sub.ShopID
+			data.ShopID = strings.TrimSpace(sub.ShopID)
+			data.DestinationAccount = strings.TrimSpace(sub.DestinationAccount)
 			return
 		}
 	}

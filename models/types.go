@@ -17,8 +17,9 @@ type EMVCoData struct {
 	MerchantCategoryCode string // Tag 52 - 商户分类码 (MCC)
 
 	// 账户信息
-	ShopID   string // 店铺 ID
-	BankCode string // 银行代码
+	ShopID             string // 店铺 ID (Tag 28-03, PPMI merchant_id)
+	BankCode           string // 银行代码 (Tag 28-01)
+	DestinationAccount string // 收款账号 (Tag 28-04, PPMI destination_account) — 存在时 deeplink 走 PPMI 字段映射
 
 	// 附加数据
 	OrderID       string // Tag 62-03 - Bill Number (账单号)
@@ -58,8 +59,9 @@ type DeepLinkOptions struct {
 	ShopID               string      // 店铺 ID
 
 	// 高级选项
-	BizNo        string // 业务单号
-	NewQRFormat  bool   // true=新格式(28-03=UID,62-05=订单号), false=旧格式(默认,28-03=订单号,62-05=UID)
+	BizNo       string // 业务单号
+	NewQRFormat bool   // true=新格式(28-03=UID,62-05=订单号), false=老格式(28-03=订单号,62-05=UID)
+	// 注：QR 含 28-04 (destination_account) 时自动走 PPMI 映射，NewQRFormat 被忽略。
 }
 
 // DeepLinkResult Deep Link 生成结果

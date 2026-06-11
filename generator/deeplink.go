@@ -96,10 +96,11 @@ func (g *DeepLinkGenerator) fillDefaults(data *models.EMVCoData, options *models
 		options.MerchantID = "217020000119199251998"
 	}
 
-	// 新版 QR 格式: 28-03=UID, 62-05=订单号
-	// 交换 shopId 和 acqInfo，使 shopId=订单号, acqInfo=UID
-	// 仅在两个值都非空时才交换，防止 ShopID 被清空导致 param5 丢失
-	if options.NewQRFormat && data.AcqInfo != "" && data.ShopID != "" {
+	// 字段映射策略：
+	//   - 优先（自动）：data.DestinationAccount (28-04) 非空 → PPMI 模式，
+	//     shopId=28-03 / tfrAcctNo=28-04 / acqInfo=62-05，不 swap。
+	//   - 回落：无 28-04 时沿用 NewQRFormat 语义；true 时交换 28-03 ↔ 62-05。
+	if data.DestinationAccount == "" && options.NewQRFormat && data.AcqInfo != "" && data.ShopID != "" {
 		data.ShopID, data.AcqInfo = data.AcqInfo, data.ShopID
 	}
 
@@ -135,7 +136,13 @@ func (g *DeepLinkGenerator) buildParameters(data *models.EMVCoData, options *mod
 	g.addIfNotEmpty(values, "orderId", options.OrderID)
 	g.addIfNotEmpty(values, "tfrbnkcode", data.BankCode)
 	g.addIfNotEmpty(values, "shopId", options.ShopID)
-	g.addIfNotEmpty(values, "tfrAcctNo", options.ShopID)
+	// PPMI 模式（自动判断）：tfrAcctNo 取 28-04 destination_account；
+	// 否则 fallback 到 shopId（兼容老 acquirer，如 DragonPay）。
+	tfrAcctNo := options.ShopID
+	if data.DestinationAccount != "" {
+		tfrAcctNo = data.DestinationAccount
+	}
+	g.addIfNotEmpty(values, "tfrAcctNo", tfrAcctNo)
 	g.addIfNotEmpty(values, "acqInfo", data.AcqInfo)
 
 	// 回调 URL
